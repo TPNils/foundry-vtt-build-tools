@@ -180,7 +180,7 @@ class BuildActions {
       console.warn('Could not start foundry: foundryconfig.json not found in project root');
       return;
     }
-    const configs = foundryConfig.getFoundryConfig();
+    const configs = foundryConfig.getFoundryConfig(args.getFoundryInstanceName());
     for (const config of configs) {
       if (!config.dataPath) {
         console.warn('Could not start foundry: foundryconfig.json is missing the property "dataPath"');
@@ -224,7 +224,7 @@ class BuildActions {
       async function init() {
         const configs: FoundryConfigJson[] = [];
         manifest = foundryManifest.getManifest();
-        for (const config of foundryConfig.getFoundryConfig()) {
+        for (const config of foundryConfig.getFoundryConfig(args.getFoundryInstanceName())) {
           if (config.dataPath == null) {
             console.warn(`Missing "dataPath" in the file foundryconfig.json for ${config.runInstanceKey}. This should point to the foundry data folder.`);
           } else {
@@ -348,7 +348,7 @@ class BuildActions {
    */
   static createUpdateSrcPacks() {
     return async function updateSrcPacks() {
-      const configs = foundryConfig.getFoundryConfig();
+      const configs = foundryConfig.getFoundryConfig(args.getFoundryInstanceName());
       if (configs.length === 0)  {
         throw new Error('Please specify wich version with --foundryinstance (or --fi) <version>')
       }

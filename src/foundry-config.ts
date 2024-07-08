@@ -1,6 +1,5 @@
-import * as fs from 'fs-extra';
+import * as fs from 'fs';
 import * as path from 'path';
-import { args } from './args';
 
 interface FoundryConfigFileJson {
   [key: string]: {
@@ -17,19 +16,16 @@ export interface FoundryConfigJson {
 
 class FoundryConfig {
 
-  public exists(): Boolean {
+  public exists(): boolean {
     return fs.existsSync(path.resolve(process.cwd(), 'foundryconfig.json'));
   }
 
-  public getFoundryConfig(runInstanceKey?: string): FoundryConfigJson[] {
-    if (!runInstanceKey) {
-      runInstanceKey = args.getFoundryInstanceName();
-    }
+  public getFoundryConfig(runInstanceKey: string): FoundryConfigJson[] {
     const configPath = path.resolve(process.cwd(), 'foundryconfig.json');
     const responses: FoundryConfigJson[] = [];
   
     if (fs.existsSync(configPath)) {
-      const file: FoundryConfigFileJson = fs.readJSONSync(configPath);
+      const file: FoundryConfigFileJson = JSON.parse(fs.readFileSync(configPath, 'utf8'));
       if (runInstanceKey && runInstanceKey in file) {
         responses.push({
           runInstanceKey: runInstanceKey,

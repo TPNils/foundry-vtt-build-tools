@@ -1,5 +1,5 @@
 import * as glob from 'glob';
-import * as fs from 'fs-extra';
+import * as fs from 'fs';
 import * as path from 'path';
 import { buildMeta } from './build-meta';
 
@@ -170,10 +170,10 @@ class FoundryManifest {
       let type: FoundryManifestJson['type'];
 
       if (fs.existsSync(modulePath)) {
-        json = fs.readJSONSync(modulePath);
+        json = JSON.parse(fs.readFileSync(modulePath, 'utf8'));
         type = 'module';
       } else if (fs.existsSync(systemPath)) {
-        json = fs.readJSONSync(systemPath);
+        json = JSON.parse(fs.readFileSync(systemPath, 'utf8'));
         type = 'system';
       } else {
         throw new Error(`No file found: ${modulePath} OR ${systemPath}`)

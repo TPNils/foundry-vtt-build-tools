@@ -1,4 +1,4 @@
-import * as fs from 'fs-extra';
+import * as fs from 'fs';
 import * as chalk from 'chalk';
 import * as stringify from 'json-stringify-pretty-compact';
 import { context as githubContext } from '@actions/github';
@@ -8,7 +8,7 @@ import { args } from './args';
 
 export class Git {
   public static async updateManifestForGithub({source, externalManifest}: {source: boolean, externalManifest: boolean}): Promise<void> {
-    const packageJson = fs.readJSONSync('package.json');
+    const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
     const manifest = foundryManifest.getManifest();
     if (!manifest) {
       throw new Error(chalk.red('Manifest JSON not found in the ./src folder'));
