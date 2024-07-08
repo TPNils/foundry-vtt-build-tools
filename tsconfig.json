@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "target": "ES6",
+    "experimentalDecorators": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "allowUmdGlobalAccess": true
+  },
+  "exclude": ["node_modules"],
+  "ts-node": {
+    "compilerOptions": {
+      "strictNullChecks": false,
+      "allowSyntheticDefaultImports": false,
+      "skipLibCheck": true
+    }
+  }
+}
