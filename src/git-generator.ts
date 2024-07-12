@@ -13,7 +13,6 @@ class Generator {
         const usageRgx = /(?:^error.+\n)?^(usage(?:.|\n)*?)\n$/gm;
         const usage = usageRgx.exec(outString)?.[1] ?? `Usage not found: ${outString}`;
 
-        // ^\s*(?:-(?<shortArgName>[a-zA-Z0-9])(?:,\s+)?)?(?:--(?:\[(?<hasTheNoOption>no-)\])?(?<longArgName>[a-z\-0-9]+))?(?:\s+<(?<valueName>.+?)>)?\s+(?<description>.*)$
         let transformed = outString.replace(usageRgx, '')
           // put description on the same line
           .replace(/\n\s+(?!--)(?=[a-z])/g, ' ')
@@ -74,19 +73,23 @@ class Generator {
           // comment weirdness
           .replace(/^([a-z0-9 :-]+)$/gmi, '// $1');
 
-          for (const [param, prop] of paramsToProps.entries()) {
-            transformed = transformed.replace(new RegExp(`(?<=\\s)${Generator.#escapeRegExp(param)}(?![a-zA-Z0-9])`, 'g'), '`' + prop + '`');
-          }
-          writeStream.write([
-            `export namespace ${cmd.toLowerCase()} {\n`,
-            `${usage.replace(/\s+$/m, '').replace(/^(.*)$/mg, '  /* $1 */')}\n`,
-            `  export interface Options {\n`,
-            `${transformed.replace(/^/mg, '    ').replace(/\s+$/m, '')}\n`,
-            `  }\n`,
-            `  export type Return = void;\n`,
-            `}`
-          ].join(''));
-          writeStream.write('\n\n')
+        let transformedUsage = usage;
+        for (const [param, prop] of paramsToProps.entries()) {
+          // console.log(cmd.toLowerCase(), param, '=>', prop)
+          const rgx = new RegExp(`(?<=\\s|\\[|\\()${Generator.#escapeRegExp(param)}(?![a-zA-Z0-9])`, 'g');
+          transformed = transformed.replace(rgx, '`' + prop + '`');
+          transformedUsage = transformedUsage.replace(rgx, '`' + prop + '`');
+        }
+        writeStream.write([
+          `export namespace ${cmd.toLowerCase()} {\n`,
+          `${transformedUsage.replace(/\s+$/m, '').replace(/^(.*)$/mg, '  /* $1 */')}\n`,
+          `  export interface Options {\n`,
+          `${transformed.replace(/^/mg, '    ').replace(/\s+$/m, '')}\n`,
+          `  }\n`,
+          `  export type Return = void;\n`,
+          `}`
+        ].join(''));
+        writeStream.write('\n\n')
       }
     } finally {
       writeStream.close()
@@ -351,48 +354,48 @@ export class Git {
 
 Generator.cmdUsageToInterface(...[
   'add',
-  'am',
-  'archive',
-  'bisect',
+  // 'am',
+  // 'archive',
+  // 'bisect',
   'branch',
-  'bundle',
+  // 'bundle',
   'checkout',
-  'cherry',
+  // 'cherry',
   // 'citool',
   'clean',
   'clone',
   'commit',
-  'describe',
-  'diff',
-  'fetch',
+  // 'describe',
+  // 'diff',
+  // 'fetch',
   // 'format',
-  'gc',
+  // 'gc',
   // 'gitk',
-  'grep',
+  // 'grep',
   // 'gui',
   'init',
   'log',
-  'maintenance',
-  'merge',
-  'mv',
-  'notes',
+  // 'maintenance',
+  // 'merge',
+  // 'mv',
+  // 'notes',
   'pull',
   'push',
   // 'range',
   'rebase',
-  'reset',
-  'restore',
-  'revert',
+  // 'reset',
+  // 'restore',
+  // 'revert',
   'rm',
   // 'scalar',
-  'shortlog',
-  'show',
+  // 'shortlog',
+  // 'show',
   // 'sparse',
   'stash',
   'status',
-  'submodule',
+  // 'submodule',
   // 'switch', // TODO reserved keyword
-  'tag',
-  'worktree',
+  // 'tag',
+  // 'worktree',
 ].filter(cmd => !(cmd in Git)));
 // Git.clone('test', 'outDir', {verbose: true, config: {'a': 'b'}, filter: 'nah'})
