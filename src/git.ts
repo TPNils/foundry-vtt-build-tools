@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import * as chalk from 'chalk';
-import * as stringify from 'json-stringify-pretty-compact';
 import { context as githubContext } from '@actions/github';
 import { foundryManifest } from './foundry-manifest';
 import { cli } from './cli';
@@ -49,7 +48,7 @@ export class Git {
 
     fs.writeFileSync(
       'package.json',
-      stringify(packageJson, {indent: '  '}),
+      JSON.stringify(packageJson, null, 2),
       'utf8'
     );
     await foundryManifest.saveManifest({overrideManifest: manifest.file, source: source});
