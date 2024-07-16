@@ -15,12 +15,10 @@ import * as minifyCss from 'gulp-clean-css';
 import * as open from 'open';
 
 import { exec } from 'child_process';
-import { FoundryManifestJson, foundryManifest } from './foundry-manifest';
-import { FoundryConfigJson, foundryConfig } from './foundry-config';
 import { buildMeta } from './build-meta';
 import { args } from './args';
 import { Git } from './git';
-import { FoundryWebsiteApi } from './foundry-website-api';
+import { FoundryVTT } from './foundy-vtt';
 
 const sass = gulpSass(sassCompiler);
 
@@ -53,7 +51,7 @@ class BuildActions {
       // When building locally, inject the mapping into the js file
       // Can't figure out how to get the mapping working well otherwise
       return function buildTS() {
-        const manifest = foundryManifest.getManifest();
+        const manifest = FoundryVTT.readManifest(buildMeta.getSrcPath());
         let pipeline = gulp.src(`${buildMeta.getSrcPath()}/**/*.ts`)
           .pipe(sourcemaps.init())
           .pipe(BuildActions.getTsConfig()())
@@ -74,7 +72,7 @@ class BuildActions {
             //includeContent: false,
             sourceMappingURL: (file) => {
               const filePathParts = file.relative.split(path.sep);
-              return '/' + [(manifest.type === 'system' ? 'systems' : 'modules'), manifest.file.id, ...filePathParts].join('/') + '.map';
+              return '/' + [(manifest.type === 'system' ? 'systems' : 'modules'), manifest.manifest.id, ...filePathParts].join('/') + '.map';
             }
           }));
         for (const dest of buildMeta.getDestPath()) {
@@ -84,15 +82,15 @@ class BuildActions {
       }
     }
     return function buildTS() {
-      const manifest = foundryManifest.getManifest();
-      const urlPrefix = '/' + [(manifest.type === 'system' ? 'systems' : 'modules'), manifest.file.id].join('/');
+      const manifest = FoundryVTT.readManifest(buildMeta.getSrcPath());
+      const urlPrefix = '/' + [(manifest.type === 'system' ? 'systems' : 'modules'), manifest.manifest.id].join('/');
       const jsFilter = gulpFilter((file) => file.basename.endsWith('.js'), {restore: true})
       const sourceMapConfig = {
         addComment: true,
         includeContent: false,
         sourceMappingURL: (file) => {
           const filePathParts = file.relative.split(path.sep);
-          return '/' + [(manifest.type === 'system' ? 'systems' : 'modules'), manifest.file.id, ...filePathParts].join('/') + '.map';
+          return '/' + [(manifest.type === 'system' ? 'systems' : 'modules'), manifest.manifest.id, ...filePathParts].join('/') + '.map';
         },
       };
       let pipeline = gulp.src(`${buildMeta.getSrcPath()}/**/*.ts`)
@@ -176,21 +174,12 @@ class BuildActions {
   }
 
   private static startFoundry() {
-    if (!foundryConfig.exists()) {
+    if (!FoundryVTT.runConfigExists()) {
       console.warn('Could not start foundry: foundryconfig.json not found in project root');
       return;
     }
-    const configs = foundryConfig.getFoundryConfig(args.getFoundryInstanceName());
+    const configs = args.getFoundryInstanceName() == null ? FoundryVTT.getRunConfigs() : [FoundryVTT.getRunConfig(args.getFoundryInstanceName())];
     for (const config of configs) {
-      if (!config.dataPath) {
-        console.warn('Could not start foundry: foundryconfig.json is missing the property "dataPath"');
-        return;
-      }
-      if (!config.foundryPath) {
-        console.warn('Could not start foundry: foundryconfig.json is missing the property "foundryPath"');
-        return;
-      }
-    
       const cmd = `node "${path.join(config.foundryPath, 'resources', 'app', 'main.js')}" --dataPath="${config.dataPath}"`;
       console.log('starting foundry: ', cmd)
       const childProcess = exec(cmd);
@@ -201,7 +190,7 @@ class BuildActions {
         if (!serverStarted) {
           const result = /Server started and listening on port ([0-9]+)/i.exec(data.toString());
           if (result) {
-            open(`http://localhost:${result[1]}/game`)
+            open(`http://localhost:${result[1]}/game`);
           }
         }
       });
@@ -216,27 +205,20 @@ class BuildActions {
    * Watch for changes for each build step
    */
   static createWatch() {
-    let manifest: FoundryManifestJson;
+    let manifest: FoundryVTT.Manifest;
     const copyFiles: any[] = [];
     let copyFilesFunc: () => Promise<any>;
     
     return gulp.series(
       async function init() {
-        const configs: FoundryConfigJson[] = [];
-        manifest = foundryManifest.getManifest();
-        for (const config of foundryConfig.getFoundryConfig(args.getFoundryInstanceName())) {
-          if (config.dataPath == null) {
-            console.warn(`Missing "dataPath" in the file foundryconfig.json for ${config.runInstanceKey}. This should point to the foundry data folder.`);
-          } else {
-            configs.push(config);
-          }
-        }
-        if (!configs.length) {
+        const runConfigs = args.getFoundryInstanceName() == null ? FoundryVTT.getRunConfigs() : [FoundryVTT.getRunConfig(args.getFoundryInstanceName())]
+        manifest = FoundryVTT.readManifest(buildMeta.getSrcPath());
+        if (!runConfigs.length) {
           throw new Error('No valid foundry instanced found in foundryconfig.json');
         }
         const destinationPaths: string[] = [];
-        for (const config of configs) {
-          const destPath = path.join(config.dataPath, 'Data', 'modules', manifest!.file.id);
+        for (const config of runConfigs) {
+          const destPath = path.join(config.dataPath, 'Data', 'modules', manifest!.manifest.id);
           destinationPaths.push(destPath);
           if (!fs.existsSync(destPath)) {
             fs.mkdirSync(destPath, {recursive: true});
@@ -262,7 +244,10 @@ class BuildActions {
           copyFilesFunc(),
         ]);
         // Only build manifest once all hbs & css files are generated
-        await foundryManifest.createBuildManifest()();
+        await Promise.all(buildMeta.getDestPath().map(dest => FoundryVTT.writeManifest({
+          ...manifest,
+          filePath: path.join(dest, path.parse(manifest.filePath).base),
+        })));
   
         // Only start foundry when the manifest is build
         BuildActions.startFoundry();
@@ -302,7 +287,7 @@ class BuildActions {
    */
   static createBuildPackage(inputDir: string) {
     return async function buildPackage() {
-      const manifest = foundryManifest.getManifest();
+      const manifest = FoundryVTT.readManifest(buildMeta.getSrcPath());
       inputDir = path.normalize(inputDir);
       if (!inputDir.endsWith(path.sep)) {
         inputDir += path.sep;
@@ -333,52 +318,13 @@ class BuildActions {
           zip.pipe(zipFile);
     
           // Add the directory with the final code
-          zip.directory(inputDir, manifest.file.id);
+          zip.directory(inputDir, manifest.manifest.id);
     
           zip.finalize();
         } catch (err) {
           return reject(err);
         }
       });
-    }
-  }
-
-  /**
-   * Copy packs from foundry to source
-   */
-  static createUpdateSrcPacks() {
-    return async function updateSrcPacks() {
-      const configs = foundryConfig.getFoundryConfig(args.getFoundryInstanceName());
-      if (configs.length === 0)  {
-        throw new Error('Please specify wich version with --foundryinstance (or --fi) <version>')
-      }
-      if (configs.length > 1)  {
-        throw new Error('Please specify wich version with --foundryinstance (or --fi) <version>. Detected options: ' + configs.map(c => c.runInstanceKey))
-      }
-      const config = configs[0];
-      if (!config.dataPath) {
-        console.warn('Could not start foundry: foundryconfig.json is missing the property "dataPath"');
-      }
-      const manifest = foundryManifest.getManifest();
-      const srcPath = [buildMeta.getSrcPath(),'packs'];
-      await BuildActions.createCopyFiles([{from: [config.dataPath, 'Data', 'modules', manifest.file.id, 'packs'], to: srcPath}])();
-      for (const fileName of fs.readdirSync(path.join(...srcPath))) {
-        const lines = fs.readFileSync(path.join(...srcPath, fileName), {encoding: 'UTF-8'}).split('\n');
-        const filteredLines: any[] = [];
-        const foundIds = new Set();
-        for (let i = lines.length - 1; i >= 0; i--) {
-          if (!lines[i]) {
-            continue;
-          }
-          const line = JSON.parse(lines[i]);
-          if (foundIds.has(line._id)) {
-            continue;
-          }
-          foundIds.add(line._id);
-          filteredLines.unshift(lines[i]);
-        }
-        fs.writeFileSync(path.join(...srcPath, fileName), filteredLines.join('\n'), {encoding: 'UTF-8'});
-      }
     }
   }
 
@@ -396,16 +342,14 @@ export const build = gulp.series(
       ...BuildActions.getStaticCopyFiles(buildMeta.getDestPath()[0]),
     ])
   ),
-  foundryManifest.createBuildManifest(),
 );
-export const updateSrcPacks = gulp.series(BuildActions.createUpdateSrcPacks());
 export const watch = BuildActions.createWatch();
 export const buildZip = gulp.series(
   build,
   BuildActions.createBuildPackage(buildMeta.getDestPath()[0])
 );
 export async function compileReadme() {
-  const html = await FoundryWebsiteApi.markdownToHtml(fs.readFileSync('./README.md', 'utf8'));
+  const html = await FoundryVTT.markdownToHtml(fs.readFileSync('./README.md', 'utf8'));
   fs.writeFileSync('./README.html', html, 'utf8')
 }
 export function rePublish() {
