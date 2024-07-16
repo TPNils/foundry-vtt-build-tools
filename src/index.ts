@@ -19,6 +19,7 @@ import { buildMeta } from './build-meta';
 import { args } from './args';
 import { Git } from './git';
 import { FoundryVTT } from './foundy-vtt';
+import { Version } from './version';
 
 const sass = gulpSass(sassCompiler);
 
@@ -344,32 +345,52 @@ export const build = gulp.series(
   ),
 );
 export const watch = BuildActions.createWatch();
+
 export const buildZip = gulp.series(
   build,
   BuildActions.createBuildPackage(buildMeta.getDestPath()[0])
 );
+
 export async function compileReadme() {
   const html = await FoundryVTT.markdownToHtml(fs.readFileSync('./README.md', 'utf8'));
-  fs.writeFileSync('./README.html', html, 'utf8')
+  fs.writeFileSync('./README.html', html, 'utf8');
 }
-export function rePublish() {
-  return Git.gitMoveTag();
+
+export async function manifestForGithubCurrentVersion() {
+  const manifest = FoundryVTT.readManifest(buildMeta.getSrcPath());
+  await Git.setGithubLinks(manifest.manifest, false);
+  await FoundryVTT.writeManifest(manifest, {injectCss: true, injectHbs: true, injectOlderVersionProperties: true});
 }
-export function updateZipManifestForGithub() {
-  return Git.updateManifestForGithub({source: false, externalManifest: false})
+
+export async function manifestForGithubLatestVersion() {
+  const manifest = FoundryVTT.readManifest(buildMeta.getSrcPath());
+  await Git.setGithubLinks(manifest.manifest, true);
+  await FoundryVTT.writeManifest(manifest, {injectCss: true, injectHbs: true, injectOlderVersionProperties: true});
 }
-export function updateExternalManifestForGithub() {
-  return Git.updateManifestForGithub({source: false, externalManifest: false})
+
+export async function rePublish() {
+  const currentVersion = await Git.getLatestVersionTag();
+  await Git.deleteVersionTag(currentVersion);
+  await Git.tagCurrentVersion(currentVersion);
 }
-export const publish = gulp.series(
-  function validateVersion() {return args.validateVersion()},
-  function validateCleanRepo() {return Git.validateCleanRepo()},
-  function updateManifestForGithub() {return Git.updateManifestForGithub({source: true, externalManifest: false})},
-  function gitCommit() {return Git.commitNewVersion()},
-  function gitDeleteCurrentVersionTag() {return Git.deleteVersionTag()},
-  function gitTag() {return Git.tagCurrentVersion()},
-);
-export const reupload = gulp.series(
-  function gitDeleteTag() {return Git.deleteVersionTag()},
-  function gitTag() {return Git.tagCurrentVersion()},
-);
+
+export async function publish() {
+  await args.validateVersion();
+  await Git.validateCleanRepo();
+
+  const manifest = FoundryVTT.readManifest(buildMeta.getSrcPath());
+  const newVersion = args.getNextVersion(await Git.getLatestVersionTag());
+  manifest.manifest.version = Version.toString(newVersion);
+  await Git.setGithubLinks(manifest.manifest, false);
+  await FoundryVTT.writeManifest(manifest, {injectCss: true, injectHbs: true, injectOlderVersionProperties: true});
+
+  const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  packageJson.version = manifest.manifest.version;
+  fs.writeFileSync('package.json', JSON.stringify(packageJson, null, 2), 'utf8');
+
+  await Git.commitNewVersion(newVersion);
+  await Git.push();
+  // If for some reason the tag already exists
+  await Git.deleteVersionTag(newVersion);
+  await Git.tagCurrentVersion(newVersion);
+}

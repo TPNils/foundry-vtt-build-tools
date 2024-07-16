@@ -1,7 +1,6 @@
 
-import { ExecException, exec, spawn } from 'child_process';
+import { ExecException, spawn } from 'child_process';
 import { Writable } from 'stream';
-
 
 export interface ExecResponse {
   cmd: string;
