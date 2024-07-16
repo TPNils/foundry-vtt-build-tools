@@ -12,7 +12,7 @@ export interface ExecResponse {
 
 export class Cli {
 
-  public spawnPromise(command: string, ...args: string[]): Promise<ExecResponse> {
+  public execPromise(command: string, ...args: string[]): Promise<ExecResponse> {
     const externalStack = new Error().stack.replace(/^.*\n/, '');
     return new Promise<ExecResponse>(async (resolve, reject) => {
       const response: ExecResponse = {
@@ -55,22 +55,6 @@ export class Cli {
         resolve(response);
       });
     })
-  }
-
-  /** @deprecated */
-  public execPromise(command: string): Promise<ExecResponse> {
-    return this.spawnPromise(command);
-    // return new Promise<ExecResponse>((resolve, reject) => {
-    //   exec(command, (err, stdout, stderr) => {
-    //     resolve({
-    //       cmd: command,
-    //       args: [],
-    //       err: err as ExecException,
-    //       stdout,
-    //       stderr
-    //     });
-    //   });
-    // });
   }
 
   public throwIfError(cmd: ExecResponse, options: {ignoreOut?: boolean} = {}): void {

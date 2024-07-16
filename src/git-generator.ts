@@ -7,7 +7,7 @@ class Generator {
     const writeStream = createWriteStream('gitCmdUsageToInterface.ts');
     try {
       for (const cmd of commands) {
-        const out = await cli.spawnPromise('git', cmd, '-h');
+        const out = await cli.execPromise('git', cmd, '-h');
         const outString = out.stderr || out.stdout;
         const paramsToProps = new Map<string, string>();
         const usageRgx = /(?:^error.+\n)?^(usage(?:.|\n)*?)\n$/gm;
@@ -259,7 +259,7 @@ export namespace Git {
 export class Git {
 
   public static async add(dir: string = '.', options?: Git.add.Options): Promise<Git.add.Return> {
-    const out = await cli.spawnPromise('git', 'add', dir, ...Git.#optionsToCommandParts(options as any));
+    const out = await cli.execPromise('git', 'add', dir, ...Git.#optionsToCommandParts(options as any));
     cli.throwIfError(out);
   }
 
@@ -279,7 +279,7 @@ export class Git {
         options ??= value;
       }
     }
-    const out = await cli.spawnPromise('git', 'clone', ...Git.#optionsToCommandParts(options as any), repo, ...(outDir ? [outDir] : []))
+    const out = await cli.execPromise('git', 'clone', ...Git.#optionsToCommandParts(options as any), repo, ...(outDir ? [outDir] : []))
     cli.throwIfError(out);
   }
 
@@ -299,7 +299,7 @@ export class Git {
         options ??= value;
       }
     }
-    const out = await cli.spawnPromise('git', 'init', ...Git.#optionsToCommandParts(options as any), ...(outDir ? [outDir] : []))
+    const out = await cli.execPromise('git', 'init', ...Git.#optionsToCommandParts(options as any), ...(outDir ? [outDir] : []))
     cli.throwIfError(out);
   }
 
