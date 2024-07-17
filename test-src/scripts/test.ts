@@ -1,4 +1,4 @@
-export interface Version {
+interface Version {
   major: number;
   minor: number;
   patch: number;
@@ -6,10 +6,10 @@ export interface Version {
 }
 
 type VersionNrString = `${number}` | `${number}.${number}` | `${number}.${number}.${number}` | `${number}.${number}.${number}-${string}`;
-export type VersionString = VersionNrString | `v${VersionNrString}` | `V${VersionNrString}`;
+type VersionString = VersionNrString | `v${VersionNrString}` | `V${VersionNrString}`;
 
 const versionMatch = /^v?(\d{1,})(?:\.(\d{1,})(?:\.(\d{1,})(?:-(.+))?)?)?$/i;
-export namespace Version {
+namespace Version {
   export function isVersionString(versionStr: string): versionStr is VersionString {
     return versionMatch.test(versionStr);
   }
@@ -62,3 +62,5 @@ export namespace Version {
     return (versionA.addon ?? '').localeCompare(versionB.addon ?? '');
   }
 }
+
+console.log(Version.parse('1'))

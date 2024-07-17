@@ -3,11 +3,11 @@ import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 import * as chalk from 'chalk';
-
 import * as ts from 'typescript';
 import * as open from 'open';
 
 import { exec } from 'child_process';
+import { MinifyOptions, minify } from 'uglify-js';
 import { buildMeta } from './build-meta';
 import { args } from './args';
 import { Git } from './git';
@@ -84,12 +84,94 @@ class BuildActions {
       throw new Error("Could not find a valid 'tsconfig.json'.");
     }
 
-    const commandLine = ts.getParsedCommandLineOfConfigFile(configPath, undefined, {...ts.sys, onUnRecoverableConfigFileDiagnostic: BuildActions.throwDiagnostic})!;
+    const commandLine = ts.getParsedCommandLineOfConfigFile(configPath, {}, {...ts.sys, onUnRecoverableConfigFileDiagnostic: BuildActions.throwDiagnostic})!;
     BuildActions.throwDiagnostic(commandLine.errors);
 
     const program = ts.createProgram(commandLine.fileNames, commandLine.options);
 
-    // return program;
+    // for (const file of program.getSourceFiles()) {
+    //   if (file.fileName.endsWith('.d.ts')) {
+    //     continue;
+    //   }
+    //   console.log(file.fileName);
+    // }
+
+    const writtenFiles: Array<{jsFilePath: string, tsSources: readonly ts.SourceFile[] | undefined}> = [];
+    const emit = program.emit(undefined, (...args: Parameters<ts.WriteFileCallback>) => {
+      if (args[0].endsWith('.js')) {
+        writtenFiles.push({
+          jsFilePath: args[0],
+          tsSources: args[4],
+        });
+        console.log(args)
+      }
+      // @ts-ignore
+      return ts.sys.writeFile(...args);
+    });
+
+    for (const writtenFile of writtenFiles) {
+      // console.log(writtenFile)
+      const jsFileContent = await fsPromises.readFile(writtenFile.jsFilePath, 'utf8');
+      const jsFilePath = path.parse(writtenFile.jsFilePath);
+      const minBaseName = jsFilePath.base;
+      const mapFileBaseName = `${jsFilePath.base}.map`;
+      const minifyOptions: MinifyOptions = {
+        compress: {
+          // Creates correcter source mapping
+          conditionals: false,
+          if_return: false,
+        }
+      };
+      if (program.getCompilerOptions().inlineSourceMap) {
+        minifyOptions.sourceMap = {
+          content: 'inline',
+          url: 'inline',
+        }
+      } else if (program.getCompilerOptions().sourceMap) {
+        minifyOptions.sourceMap = {
+          content: JSON.parse(await fsPromises.readFile(writtenFile.jsFilePath + '.map', 'utf8')),
+          url: `./${mapFileBaseName}`,
+        }
+      }
+      
+      if (program.getCompilerOptions().inlineSources != null && (typeof minifyOptions.sourceMap === 'object')) {
+        minifyOptions.sourceMap.includeSources = program.getCompilerOptions().inlineSources;
+      }
+
+      if ((typeof minifyOptions.sourceMap === 'object') && !minifyOptions.sourceMap?.includeSources) {
+        for (const tsSource of writtenFile.tsSources ?? []) {
+          await fsPromises.writeFile(path.join(jsFilePath.dir, path.basename(tsSource.fileName)), tsSource.getFullText(), 'utf8')
+        }
+        if (minifyOptions.sourceMap.content === 'inline') {
+          const base64 = /^[ \t\v]*\/\/[ \t\v]*#[ \t\v]*sourceMappingURL=(?=data:application\/json)(?:.*?);base64,(.*)$/m.exec(jsFileContent)?.[1];
+          if (base64) {
+            minifyOptions.sourceMap.content = JSON.parse(Buffer.from(base64, 'base64').toString('utf8'));
+          }
+        }
+        if (typeof minifyOptions.sourceMap.content === 'object') {
+          minifyOptions.sourceMap.content.sources = (writtenFile.tsSources ?? []).map(ts => path.basename(ts.fileName));
+        }
+      }
+
+      const out = minify(jsFileContent, minifyOptions);
+
+      await fsPromises.writeFile(path.format({
+        root: jsFilePath.root,
+        dir: jsFilePath.dir,
+        base: minBaseName,
+      }), out.code, 'utf8');
+
+      if (out.map && program.getCompilerOptions().sourceMap) {
+        await fsPromises.writeFile(path.format({
+          root: jsFilePath.root,
+          dir: jsFilePath.dir,
+          base: mapFileBaseName,
+        }), out.map, 'utf8');
+      }
+    }
+
+    return emit
+
   }
 
   private static startFoundry() {

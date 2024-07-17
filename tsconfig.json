@@ -6,6 +6,7 @@
     "experimentalDecorators": true,
     "skipLibCheck": true,
     "sourceMap": true,
+    "rootDir": "test-src",
     "allowUmdGlobalAccess": true
   },
   "include": [ "test-src/**/*" ],
