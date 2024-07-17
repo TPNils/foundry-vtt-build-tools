@@ -1,12 +1,14 @@
 {
   "compilerOptions": {
     "moduleResolution": "node",
+    "outDir": "test-dist",
     "target": "ES6",
     "experimentalDecorators": true,
     "skipLibCheck": true,
     "sourceMap": true,
     "allowUmdGlobalAccess": true
   },
+  "include": [ "test-src/**/*" ],
   "exclude": ["node_modules"],
   "ts-node": {
     "compilerOptions": {
