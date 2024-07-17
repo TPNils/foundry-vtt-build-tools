@@ -18,7 +18,7 @@ const jsMapSymbol = Symbol('jsMap');
 
 class BuildActions {
 
-  public static async createTsWatch() {
+  public static createTsWatch(): ts.WatchOfConfigFile<any> {
     const configPath = ts.findConfigFile('./', ts.sys.fileExists, 'tsconfig.json');
     if (!configPath) {
       throw new Error("Could not find a valid 'tsconfig.json'.");
@@ -62,7 +62,7 @@ class BuildActions {
     return ts.createWatchProgram(host);
   }
 
-  public static async createTsProgram() {
+  public static createTsProgram(): ts.Program {
     const configPath = ts.findConfigFile('./', ts.sys.fileExists, 'tsconfig.json');
     if (!configPath) {
       throw new Error("Could not find a valid 'tsconfig.json'.");
@@ -75,7 +75,7 @@ class BuildActions {
     host.writeFile = BuildActions.#tsWriteFile(commandLine.options, host.writeFile);
     const program = ts.createProgram(commandLine.fileNames, commandLine.options, host);
 
-    return program.emit()
+    return program;
   }
 
   static readonly #formatHost: Readonly<ts.FormatDiagnosticsHost> = {
