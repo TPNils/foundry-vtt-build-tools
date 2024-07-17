@@ -18,31 +18,7 @@ const jsMapSymbol = Symbol('jsMap');
 
 class BuildActions {
 
-  static readonly #formatHost: Readonly<ts.FormatDiagnosticsHost> = {
-    getCanonicalFileName: path => path,
-    getCurrentDirectory: ts.sys.getCurrentDirectory,
-    getNewLine: () => ts.sys.newLine
-  };
-
-  static #reportDiagnostic(diagnostic: ts.Diagnostic) {
-    console.error('Error', diagnostic.code, ':', ts.flattenDiagnosticMessageText(diagnostic.messageText, BuildActions.#formatHost.getNewLine()));
-  }
-
-  static #throwDiagnostic(diagnostic?: ts.Diagnostic | ts.Diagnostic[]) {
-    if (!diagnostic) {
-      return;
-    }
-    if (!Array.isArray(diagnostic)) {
-      diagnostic = [diagnostic];
-    }
-    if (diagnostic.length === 0) {
-      return;
-    }
-
-    throw new Error(diagnostic.map(d => `Error ${d.code}: ${ts.flattenDiagnosticMessageText(d.messageText, BuildActions.#formatHost.getNewLine())}`).join('\n'))
-  }
-
-  static async createTsWatch() {
+  public static async createTsWatch() {
     const configPath = ts.findConfigFile('./', ts.sys.fileExists, 'tsconfig.json');
     if (!configPath) {
       throw new Error("Could not find a valid 'tsconfig.json'.");
@@ -86,7 +62,7 @@ class BuildActions {
     return ts.createWatchProgram(host);
   }
 
-  static async createTsProgram() {
+  public static async createTsProgram() {
     const configPath = ts.findConfigFile('./', ts.sys.fileExists, 'tsconfig.json');
     if (!configPath) {
       throw new Error("Could not find a valid 'tsconfig.json'.");
@@ -100,6 +76,30 @@ class BuildActions {
     const program = ts.createProgram(commandLine.fileNames, commandLine.options, host);
 
     return program.emit()
+  }
+
+  static readonly #formatHost: Readonly<ts.FormatDiagnosticsHost> = {
+    getCanonicalFileName: path => path,
+    getCurrentDirectory: ts.sys.getCurrentDirectory,
+    getNewLine: () => ts.sys.newLine
+  };
+
+  static #reportDiagnostic(diagnostic: ts.Diagnostic) {
+    console.error('Error', diagnostic.code, ':', ts.flattenDiagnosticMessageText(diagnostic.messageText, BuildActions.#formatHost.getNewLine()));
+  }
+
+  static #throwDiagnostic(diagnostic?: ts.Diagnostic | ts.Diagnostic[]) {
+    if (!diagnostic) {
+      return;
+    }
+    if (!Array.isArray(diagnostic)) {
+      diagnostic = [diagnostic];
+    }
+    if (diagnostic.length === 0) {
+      return;
+    }
+
+    throw new Error(diagnostic.map(d => `Error ${d.code}: ${ts.flattenDiagnosticMessageText(d.messageText, BuildActions.#formatHost.getNewLine())}`).join('\n'))
   }
 
   static #tsWriteFile(compilerOptions: ts.CompilerOptions, original: ts.WriteFileCallback = ts.sys.writeFile): ts.WriteFileCallback {
