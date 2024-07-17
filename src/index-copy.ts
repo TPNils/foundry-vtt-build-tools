@@ -103,7 +103,6 @@ class BuildActions {
           jsFilePath: args[0],
           tsSources: args[4],
         });
-        console.log(args)
       }
       // @ts-ignore
       return ts.sys.writeFile(...args);
