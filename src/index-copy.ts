@@ -24,11 +24,11 @@ class BuildActions {
     getNewLine: () => ts.sys.newLine
   };
 
-  static reportDiagnostic(diagnostic: ts.Diagnostic) {
+  static #reportDiagnostic(diagnostic: ts.Diagnostic) {
     console.error('Error', diagnostic.code, ':', ts.flattenDiagnosticMessageText(diagnostic.messageText, BuildActions.#formatHost.getNewLine()));
   }
 
-  static throwDiagnostic(diagnostic?: ts.Diagnostic | ts.Diagnostic[]) {
+  static #throwDiagnostic(diagnostic?: ts.Diagnostic | ts.Diagnostic[]) {
     if (!diagnostic) {
       return;
     }
@@ -42,7 +42,7 @@ class BuildActions {
     throw new Error(diagnostic.map(d => `Error ${d.code}: ${ts.flattenDiagnosticMessageText(d.messageText, BuildActions.#formatHost.getNewLine())}`).join('\n'))
   }
 
-  static async #createTsWatch() {
+  static async createTsWatch() {
     const configPath = ts.findConfigFile('./', ts.sys.fileExists, 'tsconfig.json');
     if (!configPath) {
       throw new Error("Could not find a valid 'tsconfig.json'.");
@@ -62,7 +62,13 @@ class BuildActions {
     // `createSemanticDiagnosticsBuilderProgram`, the only difference is emit.
     // For pure type-checking scenarios, or when another tool/process handles emit,
     // using `createSemanticDiagnosticsBuilderProgram` may be more desirable.
-    const createProgram = ts.createSemanticDiagnosticsBuilderProgram;
+    const createProgram: ts.CreateProgram<ts.EmitAndSemanticDiagnosticsBuilderProgram> = (...args) => {
+      const host = args?.[2];
+      if (host) {
+        host.writeFile = BuildActions.#tsWriteFile(args[1] ?? {}, host.writeFile)
+      }
+      return ts.createEmitAndSemanticDiagnosticsBuilderProgram(...args)
+    }
 
     // Note that there is another overload for `createWatchCompilerHost` that takes
     // a set of root files.
@@ -71,7 +77,7 @@ class BuildActions {
       {},
       ts.sys,
       createProgram,
-      BuildActions.reportDiagnostic,
+      BuildActions.#reportDiagnostic,
       function reportWatchStatusChanged(diagnostic: ts.Diagnostic) {
         console.info(ts.formatDiagnostic(diagnostic, BuildActions.#formatHost));
       },
@@ -86,8 +92,8 @@ class BuildActions {
       throw new Error("Could not find a valid 'tsconfig.json'.");
     }
 
-    const commandLine = ts.getParsedCommandLineOfConfigFile(configPath, {}, {...ts.sys, onUnRecoverableConfigFileDiagnostic: BuildActions.throwDiagnostic})!;
-    BuildActions.throwDiagnostic(commandLine.errors);
+    const commandLine = ts.getParsedCommandLineOfConfigFile(configPath, {}, {...ts.sys, onUnRecoverableConfigFileDiagnostic: BuildActions.#throwDiagnostic})!;
+    BuildActions.#throwDiagnostic(commandLine.errors);
 
     const host: ts.CompilerHost = ts.createCompilerHost(commandLine.options);
     host.writeFile = BuildActions.#tsWriteFile(commandLine.options, host.writeFile);
@@ -262,6 +268,6 @@ export async function publish() {
 }
 
 async function start() {
-  console.log(await BuildActions.createTsProgram())
+  console.log(await BuildActions.createTsWatch())
 }
 start();
