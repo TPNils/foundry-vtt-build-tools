@@ -14,6 +14,8 @@ import { Git } from './git';
 import { FoundryVTT } from './foundy-vtt';
 import { Version } from './version';
 
+const jsMapSymbol = Symbol('jsMap');
+
 class BuildActions {
 
   static readonly #formatHost: Readonly<ts.FormatDiagnosticsHost> = {
@@ -96,81 +98,96 @@ class BuildActions {
     //   console.log(file.fileName);
     // }
 
-    const writtenFiles: Array<{jsFilePath: string, tsSources: readonly ts.SourceFile[] | undefined}> = [];
-    const emit = program.emit(undefined, (...args: Parameters<ts.WriteFileCallback>) => {
-      if (args[0].endsWith('.js')) {
-        writtenFiles.push({
-          jsFilePath: args[0],
-          tsSources: args[4],
-        });
-      }
-      // @ts-ignore
-      return ts.sys.writeFile(...args);
-    });
-
-    for (const writtenFile of writtenFiles) {
-      // console.log(writtenFile)
-      const jsFileContent = await fsPromises.readFile(writtenFile.jsFilePath, 'utf8');
-      const jsFilePath = path.parse(writtenFile.jsFilePath);
-      const minBaseName = jsFilePath.base;
-      const mapFileBaseName = `${jsFilePath.base}.map`;
-      const minifyOptions: MinifyOptions = {
-        compress: {
-          // Creates correcter source mapping
-          conditionals: false,
-          if_return: false,
+    const originalEmit = program.emit;
+    program.emit = function(this: typeof program, ...emitArgs: Parameters<typeof program['emit']>) {
+      for (let i = 0; i < 2; i++) {
+        if (emitArgs.length <= i) {
+          emitArgs.push(undefined);
         }
+      }
+      const originalWriteFile = emitArgs[1] ?? ts.sys.writeFile;
+      emitArgs[1] = (...args: Parameters<ts.WriteFileCallback>) => {
+        return BuildActions.#jsCompiledFromTs(program, originalWriteFile, ...args);
       };
-      if (program.getCompilerOptions().inlineSourceMap) {
-        minifyOptions.sourceMap = {
-          content: 'inline',
-          url: 'inline',
-        }
-      } else if (program.getCompilerOptions().sourceMap) {
-        minifyOptions.sourceMap = {
-          content: JSON.parse(await fsPromises.readFile(writtenFile.jsFilePath + '.map', 'utf8')),
-          url: `./${mapFileBaseName}`,
+      return originalEmit(...emitArgs);
+    }
+
+    return program.emit()
+  }
+
+  static #jsCompiledFromTs(program: ts.Program, originalWrite: ts.WriteFileCallback, filePath: string, fileContent: string, writeByteOrderMark: boolean, onError?: (message: string) => void, tsSources?: readonly ts.SourceFile[], data?: ts.WriteFileCallbackData): void {
+    if (filePath.endsWith('.js.map')) {
+      // Keep in memory for later use
+      program[jsMapSymbol] ??= {};
+      program[jsMapSymbol][filePath] = [filePath, fileContent, writeByteOrderMark, onError, tsSources, data];
+      return;
+    }
+    if (!filePath.endsWith('.js')) {
+      return originalWrite(filePath, fileContent, writeByteOrderMark, onError, tsSources, data);
+    }
+    const parsedFilePath = path.parse(filePath);
+    const minifyOptions: MinifyOptions = {
+      compress: {
+        // Creates correcter source mapping
+        conditionals: false,
+        if_return: false,
+      }
+    };
+    if (program.getCompilerOptions().inlineSourceMap) {
+      minifyOptions.sourceMap = {
+        content: 'inline',
+        url: 'inline',
+      }
+    } else if (program.getCompilerOptions().sourceMap) {
+      const [mapFilePath, mapFileContent] = program[jsMapSymbol][filePath + '.map'];
+      minifyOptions.sourceMap = {
+        content: JSON.parse(mapFileContent),
+        url: `./${path.basename(mapFilePath)}`,
+      }
+    }
+    
+    if (program.getCompilerOptions().inlineSources != null && (typeof minifyOptions.sourceMap === 'object')) {
+      minifyOptions.sourceMap.includeSources = program.getCompilerOptions().inlineSources;
+    }
+
+    if ((typeof minifyOptions.sourceMap === 'object') && !minifyOptions.sourceMap?.includeSources) {
+      for (const tsSource of tsSources ?? []) {
+        originalWrite(
+          path.join(parsedFilePath.dir, path.basename(tsSource.fileName)),
+          tsSource.getFullText(),
+          writeByteOrderMark, onError
+        );
+      }
+      if (minifyOptions.sourceMap.content === 'inline') {
+        const base64 = /^[ \t\v]*\/\/[ \t\v]*#[ \t\v]*sourceMappingURL=(?=data:application\/json)(?:.*?);base64,(.*)$/m.exec(fileContent)?.[1];
+        if (base64) {
+          minifyOptions.sourceMap.content = JSON.parse(Buffer.from(base64, 'base64').toString('utf8'));
         }
       }
-      
-      if (program.getCompilerOptions().inlineSources != null && (typeof minifyOptions.sourceMap === 'object')) {
-        minifyOptions.sourceMap.includeSources = program.getCompilerOptions().inlineSources;
-      }
-
-      if ((typeof minifyOptions.sourceMap === 'object') && !minifyOptions.sourceMap?.includeSources) {
-        for (const tsSource of writtenFile.tsSources ?? []) {
-          await fsPromises.writeFile(path.join(jsFilePath.dir, path.basename(tsSource.fileName)), tsSource.getFullText(), 'utf8')
-        }
-        if (minifyOptions.sourceMap.content === 'inline') {
-          const base64 = /^[ \t\v]*\/\/[ \t\v]*#[ \t\v]*sourceMappingURL=(?=data:application\/json)(?:.*?);base64,(.*)$/m.exec(jsFileContent)?.[1];
-          if (base64) {
-            minifyOptions.sourceMap.content = JSON.parse(Buffer.from(base64, 'base64').toString('utf8'));
-          }
-        }
-        if (typeof minifyOptions.sourceMap.content === 'object') {
-          minifyOptions.sourceMap.content.sources = (writtenFile.tsSources ?? []).map(ts => path.basename(ts.fileName));
-        }
-      }
-
-      const out = minify(jsFileContent, minifyOptions);
-
-      await fsPromises.writeFile(path.format({
-        root: jsFilePath.root,
-        dir: jsFilePath.dir,
-        base: minBaseName,
-      }), out.code, 'utf8');
-
-      if (out.map && program.getCompilerOptions().sourceMap) {
-        await fsPromises.writeFile(path.format({
-          root: jsFilePath.root,
-          dir: jsFilePath.dir,
-          base: mapFileBaseName,
-        }), out.map, 'utf8');
+      if (typeof minifyOptions.sourceMap.content === 'object') {
+        minifyOptions.sourceMap.content.sources = (tsSources ?? []).map(ts => path.basename(ts.fileName));
       }
     }
 
-    return emit
+    const out = minify(fileContent, minifyOptions);
 
+    originalWrite(
+      filePath,
+      out.code,
+      writeByteOrderMark, onError, tsSources, data,
+    );
+
+    if (out.map && program.getCompilerOptions().sourceMap) {
+      originalWrite(
+        filePath + '.map',
+        out.map,
+        writeByteOrderMark, onError
+      );
+    }
+    
+    if (program[jsMapSymbol] && filePath + '.map' in program[jsMapSymbol]) {
+      delete program[jsMapSymbol][filePath + '.map'];
+    }
   }
 
   private static startFoundry() {
