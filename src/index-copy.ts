@@ -89,41 +89,29 @@ class BuildActions {
     const commandLine = ts.getParsedCommandLineOfConfigFile(configPath, {}, {...ts.sys, onUnRecoverableConfigFileDiagnostic: BuildActions.throwDiagnostic})!;
     BuildActions.throwDiagnostic(commandLine.errors);
 
-    const program = ts.createProgram(commandLine.fileNames, commandLine.options);
-
-    // for (const file of program.getSourceFiles()) {
-    //   if (file.fileName.endsWith('.d.ts')) {
-    //     continue;
-    //   }
-    //   console.log(file.fileName);
-    // }
-
-    const originalEmit = program.emit;
-    program.emit = function(this: typeof program, ...emitArgs: Parameters<typeof program['emit']>) {
-      for (let i = 0; i < 2; i++) {
-        if (emitArgs.length <= i) {
-          emitArgs.push(undefined);
-        }
-      }
-      const originalWriteFile = emitArgs[1] ?? ts.sys.writeFile;
-      emitArgs[1] = (...args: Parameters<ts.WriteFileCallback>) => {
-        return BuildActions.#jsCompiledFromTs(program, originalWriteFile, ...args);
-      };
-      return originalEmit(...emitArgs);
-    }
+    const host: ts.CompilerHost = ts.createCompilerHost(commandLine.options);
+    host.writeFile = BuildActions.#tsWriteFile(commandLine.options, host.writeFile);
+    const program = ts.createProgram(commandLine.fileNames, commandLine.options, host);
 
     return program.emit()
   }
 
-  static #jsCompiledFromTs(program: ts.Program, originalWrite: ts.WriteFileCallback, filePath: string, fileContent: string, writeByteOrderMark: boolean, onError?: (message: string) => void, tsSources?: readonly ts.SourceFile[], data?: ts.WriteFileCallbackData): void {
+  static #tsWriteFile(compilerOptions: ts.CompilerOptions, original: ts.WriteFileCallback = ts.sys.writeFile): ts.WriteFileCallback {
+    return function (...args: Parameters<ts.WriteFileCallback>) {
+      return BuildActions.#jsCompiledFromTs.call(this, compilerOptions, original, ...args);
+    }
+  }
+
+  static #jsCompiledFromTs(this: ts.CompilerHost, compilerOptions: ts.CompilerOptions, originalWrite: ts.WriteFileCallback, ...writeArgs: Parameters<ts.WriteFileCallback>): void {
+    const [filePath, fileContent, writeByteOrderMark, onError, tsSources] = writeArgs;
     if (filePath.endsWith('.js.map')) {
       // Keep in memory for later use
-      program[jsMapSymbol] ??= {};
-      program[jsMapSymbol][filePath] = [filePath, fileContent, writeByteOrderMark, onError, tsSources, data];
+      this[jsMapSymbol] ??= {};
+      this[jsMapSymbol][filePath] = writeArgs;
       return;
     }
     if (!filePath.endsWith('.js')) {
-      return originalWrite(filePath, fileContent, writeByteOrderMark, onError, tsSources, data);
+      return originalWrite(filePath, fileContent, ...BuildActions.#slice(writeArgs, 2));
     }
     const parsedFilePath = path.parse(filePath);
     const minifyOptions: MinifyOptions = {
@@ -133,21 +121,21 @@ class BuildActions {
         if_return: false,
       }
     };
-    if (program.getCompilerOptions().inlineSourceMap) {
+    if (compilerOptions.inlineSourceMap) {
       minifyOptions.sourceMap = {
         content: 'inline',
         url: 'inline',
       }
-    } else if (program.getCompilerOptions().sourceMap) {
-      const [mapFilePath, mapFileContent] = program[jsMapSymbol][filePath + '.map'];
+    } else if (compilerOptions.sourceMap) {
+      const [mapFilePath, mapFileContent] = this[jsMapSymbol][filePath + '.map'];
       minifyOptions.sourceMap = {
         content: JSON.parse(mapFileContent),
         url: `./${path.basename(mapFilePath)}`,
       }
     }
     
-    if (program.getCompilerOptions().inlineSources != null && (typeof minifyOptions.sourceMap === 'object')) {
-      minifyOptions.sourceMap.includeSources = program.getCompilerOptions().inlineSources;
+    if (compilerOptions.inlineSources != null && (typeof minifyOptions.sourceMap === 'object')) {
+      minifyOptions.sourceMap.includeSources = compilerOptions.inlineSources;
     }
 
     if ((typeof minifyOptions.sourceMap === 'object') && !minifyOptions.sourceMap?.includeSources) {
@@ -155,7 +143,7 @@ class BuildActions {
         originalWrite(
           path.join(parsedFilePath.dir, path.basename(tsSource.fileName)),
           tsSource.getFullText(),
-          writeByteOrderMark, onError
+          ...BuildActions.#slice(writeArgs, 2),
         );
       }
       if (minifyOptions.sourceMap.content === 'inline') {
@@ -174,20 +162,29 @@ class BuildActions {
     originalWrite(
       filePath,
       out.code,
-      writeByteOrderMark, onError, tsSources, data,
+      ...BuildActions.#slice(writeArgs, 2),
     );
 
-    if (out.map && program.getCompilerOptions().sourceMap) {
+    if (out.map && compilerOptions.sourceMap) {
       originalWrite(
         filePath + '.map',
         out.map,
-        writeByteOrderMark, onError
+        ...BuildActions.#slice(writeArgs, 2),
       );
     }
     
-    if (program[jsMapSymbol] && filePath + '.map' in program[jsMapSymbol]) {
-      delete program[jsMapSymbol][filePath + '.map'];
+    if (this[jsMapSymbol] && filePath + '.map' in this[jsMapSymbol]) {
+      delete this[jsMapSymbol][filePath + '.map'];
     }
+  }
+
+  static #slice<T extends any[]>(array: T, from: 1): ((...args: T) => void) extends (a: any, ...rest: infer R) => any ? R : [];
+  static #slice<T extends any[]>(array: T, from: 2): ((...args: T) => void) extends (a: any, b: any, ...rest: infer R) => any ? R : [];
+  static #slice<T extends any[]>(array: T, from: 3): ((...args: T) => void) extends (a: any, b: any, c: any, ...rest: infer R) => any ? R : [];
+  static #slice<T extends any[]>(array: T, from: 4): ((...args: T) => void) extends (a: any, b: any, c: any, d: any, ...rest: infer R) => any ? R : [];
+  static #slice<T extends any[]>(array: T, from: 5): ((...args: T) => void) extends (a: any, b: any, c: any, d: any, e: any, ...rest: infer R) => any ? R : [];
+  static #slice<T extends any[]>(array: T, from: number): ReturnType<T['slice']> {
+    return array.slice(from) as any;
   }
 
   private static startFoundry() {
