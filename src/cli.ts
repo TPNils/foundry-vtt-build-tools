@@ -13,7 +13,7 @@ export interface ExecResponse {
 export class Cli {
 
   public execPromise(command: string, ...args: string[]): Promise<ExecResponse> {
-    const externalStack = new Error().stack.replace(/^.*\n/, '');
+    const externalStack = new Error().stack!.replace(/^.*\n/, '');
     return new Promise<ExecResponse>(async (resolve, reject) => {
       const response: ExecResponse = {
         cmd: command,

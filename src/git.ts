@@ -26,8 +26,8 @@ export class Git {
     manifest.download = `https://github.com/${githubRepository}/releases/download/${manifest.version}/module.zip`;
   }
 
-  public static async getGithubRepoName(): Promise<string> {
-    let githubRepository: string;
+  public static async getGithubRepoName(): Promise<string | null> {
+    let githubRepository: string | null = null;
 
     // Try to detect the github repo in a github action
     if (githubContext.payload?.repository?.full_name) {
@@ -35,7 +35,7 @@ export class Git {
     }
 
     if (githubRepository == null) {
-      let remoteName: string;
+      let remoteName: string | null = null;
       {
         const out = await cli.execPromise('git remote');
         if (out.stdout) {
@@ -62,11 +62,11 @@ export class Git {
       if (remoteName != null) {
         const remoteUrl = await cli.execPromise(`git remote get-url --push "${remoteName.replace(/"/g, '\\"')}"`);
         cli.throwIfError(remoteUrl);
-        const sshRgx = /^git@github\.com:(.*)\.git$/i.exec(remoteUrl.stdout.trim());
+        const sshRgx = /^git@github\.com:(.*)\.git$/i.exec(remoteUrl?.stdout?.trim() ?? '');
         if (sshRgx) {
           githubRepository = sshRgx[1];
         } else {
-          const httpRgx = /^https?:\/\/github\.com\/(.*)\.git$/i.exec(remoteUrl.stdout.trim());
+          const httpRgx = /^https?:\/\/github\.com\/(.*)\.git$/i.exec(remoteUrl?.stdout?.trim() ?? '');
           if (httpRgx) {
             githubRepository = httpRgx[1];
           }
@@ -96,10 +96,10 @@ export class Git {
     await cli.execPromise(`git push --delete origin ${Version.toString(version)}`);
   }
 
-  public static async getCurrentLongHash(): Promise<string> {
+  public static async getCurrentLongHash(): Promise<string | null> {
     const hash = await cli.execPromise(`git rev-parse HEAD`);
     cli.throwIfError(hash);
-    return hash.stdout?.split('\n')?.[0];
+    return hash.stdout?.split('\n')?.[0] ?? null;
   }
 
   public static async tagCurrentVersion(version: Version): Promise<void> {
@@ -111,9 +111,9 @@ export class Git {
   public static async getLatestVersionTag(): Promise<Version> {
     const tagHash = await cli.execPromise('git show-ref --tags');
     const rgx = /refs\/tags\/(.*)/g;
-    let match: RegExpExecArray;
+    let match: RegExpExecArray | null;
     const versions: Version[] = [];
-    while (match = rgx.exec(tagHash.stdout)) {
+    while (match = rgx.exec(tagHash.stdout ?? '')) {
       try {
         versions.push(Version.parse(match[1]));
       } catch {/*ignore*/}
