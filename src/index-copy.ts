@@ -84,14 +84,30 @@ async function cleanDir(dir: string): Promise<void> {
 }
 
 async function processFile(inputPath: string, outDir: string, rootDir: string): Promise<void> {
-  let outFileName = path.join(outDir, path.relative(rootDir, inputPath));
-  switch (path.extname(inputPath).toLowerCase()) {
+  let outputPath = path.join(outDir, path.relative(rootDir, inputPath));
+  const ext = path.extname(inputPath).toLowerCase();
+  switch (ext) {
+    case '.sass':
+    case '.scss': {
+      outputPath = outputPath.replace(/\.s[ac]ss$/i, '.css');
+      break;
+    }
+  }
+
+  // If file is deleted, delete output
+  if (!fs.existsSync(inputPath)) {
+    if (fs.existsSync(outputPath)) {
+      await fsPromises.rm(outputPath, {recursive: true});
+    }
+    return;
+  }
+
+  switch (ext) {
     case '.sass':
     case '.scss': {
       const compileResult = await sass.compileAsync(inputPath);
-      outFileName = outFileName.replace(/\.s[ac]ss$/i, '.css');
-      await fsPromises.mkdir(path.dirname(outFileName), {recursive: true});
-      await fsPromises.writeFile(outFileName, compileResult.css);
+      await fsPromises.mkdir(path.dirname(outputPath), {recursive: true});
+      await fsPromises.writeFile(outputPath, compileResult.css);
       break;
     }
     // case '.less': {
@@ -99,9 +115,9 @@ async function processFile(inputPath: string, outDir: string, rootDir: string): 
     //   throw new Error('TODO less compiler not supported yet')
     // }
     default: {
-      await fsPromises.mkdir(path.dirname(outFileName), {recursive: true});
+      await fsPromises.mkdir(path.dirname(outputPath), {recursive: true});
       const inputStream = fs.createReadStream(inputPath);
-      const outputStream = fs.createWriteStream(outFileName);
+      const outputStream = fs.createWriteStream(outputPath);
       inputStream.pipe(outputStream, {end: true});
       await new Promise<void>((resolve, reject) => {
         outputStream.on('finish', resolve);
@@ -111,7 +127,8 @@ async function processFile(inputPath: string, outDir: string, rootDir: string): 
   }
 }
 
-export async function build() {
+
+export function preBuildValidation() {
   // Pre-build validation
   const tsConfig = TsConfig.getTsConfig();
   const outDir = path.resolve(path.dirname(tsConfig.path), tsConfig.config.compilerOptions?.outDir ?? 'dist');
@@ -127,13 +144,36 @@ export async function build() {
     throw new Error(`No input files are allowed in the output dir.\nOutput dir:${outDir}\nConflicting input files:${inputFilesInOutDir.map(f => `\n- ${f}`)}`)
   }
 
+  return {tsConfig, outDir, rootDir};
+}
+
+export async function build() {
+  // Pre-build validation
+  const {tsConfig, outDir, rootDir} = preBuildValidation();
+
   // Pre-build preparation
   await fsPromises.mkdir(outDir, {recursive: true});
   await cleanDir(outDir);
 
   // Exec build
   TsCompiler.createTsProgram({rootDir}).emit();
-  await Promise.all(TsConfig.getNonTsFiles().map(tsFile => processFile(tsFile, outDir, rootDir!)));
+  await Promise.all(TsConfig.getNonTsFiles(tsConfig).map(file => processFile(file, outDir, rootDir)));
+}
+
+export async function watch() {
+  // Pre-watch validation
+  const {tsConfig, outDir, rootDir} = preBuildValidation();
+
+  // Pre-watch preparation
+  await fsPromises.mkdir(outDir, {recursive: true});
+  await cleanDir(outDir);
+
+  // Exec watch
+  const tsWatcher = TsCompiler.createTsWatch({rootDir});
+  const nonTsWatcher = TsConfig.watchNonTsFiles(tsConfig);
+  nonTsWatcher.addListener('add', file => processFile(file, outDir, rootDir).catch(console.error));
+  nonTsWatcher.addListener('change', file => processFile(file, outDir, rootDir).catch(console.error));
+  nonTsWatcher.addListener('unlink', file => processFile(file, outDir, rootDir).catch(console.error));
 }
 
 export async function compileReadme() {
@@ -181,6 +221,6 @@ export async function publish() {
 }
 
 async function start() {
-  build()
+  watch();
 }
 start();
