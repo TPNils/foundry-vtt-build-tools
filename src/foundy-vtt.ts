@@ -251,19 +251,13 @@ export class FoundryVTT {
   }
 
   static async #injectCss(input: FoundryVTT.Manifest.LatestVersion, findInDir: string): Promise<void> {
-    const cssFileGlobResult = await glob(path.join(findInDir, '**/*.css'));
+    const cssFileGlobResult = await glob('**/*.css', {
+      cwd: findInDir,
+      nodir: true,
+      posix: true,
+    });
   
-    const cssFiles = new Set<string | null>();
-    for (const fileNames of cssFileGlobResult) {
-      for (let fileName of fileNames) {
-        fileName = path.normalize(fileName);
-        // Remove the destination path prefix
-        fileName = fileName.substring(findInDir.length + path.sep.length);
-        fileName = fileName.replace(path.sep, '/');
-        cssFiles.add(fileName);
-      }
-    }
-
+    const cssFiles = new Set<string | null>(cssFileGlobResult);
     if (Array.isArray(input.styles)) {
       for (const value of input.styles) {
         cssFiles.add(value)
@@ -275,19 +269,13 @@ export class FoundryVTT {
   }
 
   static async #injectHbs(input: FoundryVTT.Manifest.LatestVersion, findInDir: string): Promise<void> {
-    const hbsGlobFiles = await glob(path.join(findInDir, '**/*.hbs'));
+    const hbsGlobFiles = await glob('**/*.hbs', {
+      cwd: findInDir,
+      nodir: true,
+      posix: true,
+    });
   
-    const hbsFiles = new Set<string | null>();
-    for (const fileNames of hbsGlobFiles) {
-      for (let fileName of fileNames) {
-        fileName = path.normalize(fileName);
-        // Remove the destination path prefix
-        fileName = fileName.substring(findInDir.length + path.sep.length);
-        fileName = fileName.replace(path.sep, '/');
-        hbsFiles.add(fileName);
-      }
-    }
-
+    const hbsFiles = new Set<string | null>(hbsGlobFiles);
     if (Array.isArray(input.flags?.hbsFiles)) {
       for (const value of input.flags!.hbsFiles) {
         hbsFiles.add(value)
