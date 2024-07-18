@@ -1,0 +1,15 @@
+/*
+!/.gitignore
+!/.npmignore
+!/package.json
+!/package-lock.json
+!/tsconfig.json
+!/LICENSE
+!/README.md
+!/TODO.md
+!/.gitmodules
+!/.eslintrc.json
+
+!/node_modules
+!/dist
+!/docs
