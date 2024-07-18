@@ -124,8 +124,8 @@ export class FoundryVTT {
 
   public static startServer(runInstanceKey: string): ChildProcess {
     const config = FoundryVTT.getRunConfig(runInstanceKey)
-    const childProcess = spawn('node', [path.join(config.foundryPath, 'resources', 'app', 'main.js'), `--dataPath="${config.dataPath}"`]);
-    console.log('starting foundry: ', `${childProcess.spawnfile} ${childProcess.spawnargs.join(' ')}`)
+    const childProcess = spawn('node', [path.join(config.foundryPath, 'resources', 'app', 'main.js'), `--dataPath=${config.dataPath}`]);
+    console.log('starting foundry: ', childProcess.spawnargs.join(' '));
 
     let serverStarted = false;
     childProcess.stdout!.on('data', function (data) {
