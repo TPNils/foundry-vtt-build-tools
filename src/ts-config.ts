@@ -23,6 +23,7 @@ export namespace TsConfig {
   export type WatchEventMap = BaseWatchEventMap & DefaultEventMap<BaseWatchEventMap>;
 }
 
+// TODO custom transformers
 export class TsConfig {
 
   public static getTsConfig(): TsConfigResult {
@@ -34,39 +35,11 @@ export class TsConfig {
     return tsConfig;
   }
 
-  public static getNonTsFiles(): string[] {
-    const tsConfig = TsConfig.getTsConfig();
-    const {files, inclGlobs, exclGlobs} = TsConfig.#getIncExcl(tsConfig.config);
-    const globConfig: GlobOptions = {
-      cwd: path.dirname(tsConfig.path),
-      nodir: true,
-      absolute: true,
-    };
-    
-    // Should not affect tsConfig.config.files
-    // https://www.typescriptlang.org/tsconfig/#exclude
-    const excludeFileGlobs = new Set<string>();
-    for (const glob of exclGlobs) {
-      const globSync = new GlobSync(glob, {...globConfig});
-      for (const file of globSync.found) {
-        excludeFileGlobs.add(file);
-      }
-    }
-    
-    for (const glob of inclGlobs) {
-      const globSync = new GlobSync(glob, {...globConfig});
-      for (const file of globSync.found) {
-        if (!excludeFileGlobs.has(file)) {
-          files.add(file);
-        }
-      }
-    }
-
-    return TsConfig.#filterNonTsFiles(tsConfig.config, files);
+  public static getNonTsFiles(tsConfig: TsConfigResult = TsConfig.getTsConfig()): string[] {
+    return TsConfig.#filterNonTsFiles(tsConfig.config, TsConfig.getAllFiles(tsConfig));
   }
 
-  public static watchNonTsFiles(): EventEmitter<TsConfig.BaseWatchEventMap> {
-    const tsConfig = TsConfig.getTsConfig();
+  public static watchNonTsFiles(tsConfig: TsConfigResult = TsConfig.getTsConfig()): EventEmitter<TsConfig.BaseWatchEventMap> {
     const {files, inclGlobs, exclGlobs} = TsConfig.#getIncExcl(tsConfig.config);
     const eventEmitter = new EventEmitter<TsConfig.WatchEventMap>({captureRejections: true});
     const listenEvents: Array<keyof TsConfig.BaseWatchEventMap> = ['add', 'change', 'unlink', 'ready'];
@@ -106,6 +79,36 @@ export class TsConfig {
     })
     
     return eventEmitter as any;
+  }
+
+  public static getAllFiles(tsConfig: TsConfigResult = TsConfig.getTsConfig()): Set<string> {
+    const {files, inclGlobs, exclGlobs} = TsConfig.#getIncExcl(tsConfig.config);
+    const globConfig: GlobOptions = {
+      cwd: path.dirname(tsConfig.path),
+      nodir: true,
+      absolute: true,
+    };
+    
+    // Should not affect tsConfig.config.files
+    // https://www.typescriptlang.org/tsconfig/#exclude
+    const excludeFileGlobs = new Set<string>();
+    for (const glob of exclGlobs) {
+      const globSync = new GlobSync(glob, {...globConfig});
+      for (const file of globSync.found) {
+        excludeFileGlobs.add(file);
+      }
+    }
+    
+    for (const glob of inclGlobs) {
+      const globSync = new GlobSync(glob, {...globConfig});
+      for (const file of globSync.found) {
+        if (!excludeFileGlobs.has(file)) {
+          files.add(file);
+        }
+      }
+    }
+
+    return files;
   }
 
   static #getIncExcl(tsConfig: TsConfigJsonResolved): {files: Set<string>; inclGlobs: Set<string>; exclGlobs: Set<string>;} {
