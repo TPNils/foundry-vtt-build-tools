@@ -118,9 +118,12 @@ export function preBuildValidation() {
   return {tsConfig, outDir, rootDir};
 }
 
-export async function build(): Promise<void> {
+export async function build(outDir?: string): Promise<void> {
   // Pre-build validation
-  const {tsConfig, outDir, rootDir} = preBuildValidation();
+  const {tsConfig, outDir: tsOutDir, rootDir} = preBuildValidation();
+  if (!outDir) {
+    outDir = tsOutDir;
+  }
 
   // Pre-build preparation
   await fsPromises.mkdir(outDir, {recursive: true});
@@ -128,7 +131,7 @@ export async function build(): Promise<void> {
 
   // Exec build
   TsCompiler.createTsProgram({rootDir}).emit();
-  await Promise.all(TsConfig.getNonTsFiles(tsConfig).map(file => processFile(file, outDir, rootDir)));
+  await Promise.all(TsConfig.getNonTsFiles(tsConfig).map(file => processFile(file, outDir!, rootDir)));
 }
 
 export async function watch(outDir?: string): Promise<{stop: () => void}> {
