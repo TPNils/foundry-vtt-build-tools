@@ -40,6 +40,35 @@ function startFoundry() {
   }
 }
 
+function findMostCommonDir(files: Iterable<string>): string {
+  const dirs = new Set<string>();
+  for (const file of files) {
+    dirs.add(path.dirname(file));
+  }
+
+  let mostCommonDir: string | null = null;
+  for (const dir of dirs) {
+    mostCommonDir = dir;
+    break;
+  }
+  if (mostCommonDir == null) {
+    return '';
+  }
+
+  for (const dir of dirs) {
+    const maxLength = Math.min(mostCommonDir.length, dir.length);
+    let lastCommonCharIndex = 0;
+    for (; lastCommonCharIndex < maxLength; lastCommonCharIndex++) {
+      if (mostCommonDir[lastCommonCharIndex] !== dir[lastCommonCharIndex]) {
+        break;
+      }
+    }
+    mostCommonDir = mostCommonDir.substring(0, lastCommonCharIndex);
+  }
+
+  return mostCommonDir;
+}
+
 export async function compileReadme() {
   const html = await FoundryVTT.markdownToHtml(fs.readFileSync('./README.md', 'utf8'));
   fs.writeFileSync('./README.html', html, 'utf8');
@@ -85,20 +114,6 @@ export async function publish() {
 }
 
 async function start() {
-  let changed = 0;
-  const listener = TsConfig.watchNonTsFiles();
-  listener.addListener('add', (file: string, stats?: fs.Stats) => {
-    console.log('add', file);
-  })
-  listener.addListener('ready', () => {
-    console.log('ready');
-  })
-  listener.addListener('change', (file: string, stats?: fs.Stats) => {
-    console.log('change', file);
-    changed++;
-    if (changed >= 2) {
-      listener.removeAllListeners();
-    }
-  })
+  console.log(findMostCommonDir(TsConfig.getNonTsFiles()))
 }
 start();
