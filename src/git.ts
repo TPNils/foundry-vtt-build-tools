@@ -11,6 +11,7 @@ export class Git {
     if (githubRepository == null) {
       throw new Error(chalk.red(`Git no github repository found.`));
     }
+    const versionString = Version.toString(Version.parse(manifest.version))
 
     manifest.url = `https://github.com/${githubRepository}`;
     // When foundry checks if there is an update, it will fetch the manifest present in the zip, for us it points to the latest one.
@@ -21,9 +22,9 @@ export class Git {
       manifest.manifest = `https://github.com/${githubRepository}/releases/download/latest/module.json`;
     } else {
       // Seperate file uploaded for github
-      manifest.manifest = `https://github.com/${githubRepository}/releases/download/${manifest.version}/module.json`;
+      manifest.manifest = `https://github.com/${githubRepository}/releases/download/${versionString}/module.json`;
     }
-    manifest.download = `https://github.com/${githubRepository}/releases/download/${manifest.version}/module.zip`;
+    manifest.download = `https://github.com/${githubRepository}/releases/download/${versionString}/module.zip`;
   }
 
   public static async getGithubRepoName(): Promise<string | null> {
