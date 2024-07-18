@@ -54,8 +54,11 @@ namespace Version {
     let diff: number;
     for (const key of ['major', 'minor', 'patch']) {
       diff = versionA[key] - versionB[key];
-      if (diff !== 0) {
+      if (diff > 0) {
         return 1;
+      }
+      if (diff < 0) {
+        return -1;
       }
     }
 
@@ -63,4 +66,4 @@ namespace Version {
   }
 }
 
-console.log(Version.parse('1'))
+console.log([Version.parse('1'), Version.parse('3'), Version.parse('2')].sort(Version.sort))
