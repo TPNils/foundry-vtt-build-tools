@@ -129,6 +129,9 @@ export class FoundryVTT {
 
     let serverStarted = false;
     childProcess.stdout!.on('data', function (data) {
+      if (data instanceof Buffer) {
+        data = data.toString('utf8');
+      }
       process.stdout.write(data.replace(/^(foundryvtt)?/i, `$1 ${config.runInstanceKey}`));
       if (!serverStarted) {
         const result = /Server started and listening on port ([0-9]+)/i.exec(data.toString());
