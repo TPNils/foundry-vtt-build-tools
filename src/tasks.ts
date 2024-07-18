@@ -219,8 +219,3 @@ export async function publish() {
   await Git.deleteVersionTag(newVersion);
   await Git.tagCurrentVersion(newVersion);
 }
-
-async function start() {
-  watch();
-}
-start();
