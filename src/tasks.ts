@@ -127,7 +127,7 @@ export async function build(outDir?: string): Promise<void> {
   await cleanDir(outDir);
 
   // Exec build
-  TsCompiler.createTsProgram({rootDir}).emit();
+  TsCompiler.createTsProgram({rootDir, outDir}).emit();
   await Promise.all(TsConfig.getNonTsFiles(tsConfig).map(file => processFile(file, outDir!, rootDir)));
 }
 
@@ -143,7 +143,7 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
   await cleanDir(outDir);
 
   // Exec watch
-  const tsWatcher = TsCompiler.createTsWatch({rootDir});
+  const tsWatcher = TsCompiler.createTsWatch({rootDir, outDir});
   const nonTsWatcher = TsConfig.watchNonTsFiles(tsConfig);
   nonTsWatcher.addListener('add', file => processFile(file, outDir!, rootDir).catch(console.error));
   nonTsWatcher.addListener('change', file => processFile(file, outDir!, rootDir).catch(console.error));
