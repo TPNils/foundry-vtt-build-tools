@@ -2,6 +2,9 @@
   "name": "foundry-vtt-build-tools",
   "version": "0.0.0",
   "main": "index.js",
+  "bin": {
+    "foundry-vtt-build-tools": "dist/default-builder.js"
+  },
   "scripts": {
     "git-gen": "ts-node ./src/git-generator.ts",
     "dev": "npm run build",
@@ -21,7 +24,8 @@
     "sass": "^1.26.10",
     "showdown": "^2.1.0",
     "typescript": "^4.9.5",
-    "uglify-js": "^3.18.0"
+    "uglify-js": "^3.18.0",
+    "yargs": "^17.7.2"
   },
   "devDependencies": {
     "@types/glob-watcher": "^5.0.5",
