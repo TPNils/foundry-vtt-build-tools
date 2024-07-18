@@ -1,6 +1,6 @@
 {
-  "name": "emphasis-roll",
-  "version": "1.1.0",
+  "name": "foundry-vtt-build-tools",
+  "version": "0.0.0",
   "main": "index.js",
   "scripts": {
     "git-gen": "ts-node ./src/git-generator.ts",
