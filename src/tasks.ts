@@ -4,11 +4,11 @@ import * as path from 'path';
 import * as sass from 'sass';
 
 import { ChildProcess } from 'child_process';
-import { Git } from './git.js';
-import { FoundryVTT } from './foundy-vtt.js';
-import { Version } from './version.js';
-import { TsCompiler } from './ts-compiler.js';
-import { TsConfig } from './ts-config.js';
+import { Git } from './git';
+import { FoundryVTT } from './foundy-vtt';
+import { Version } from './version';
+import { TsCompiler } from './ts-compiler';
+import { TsConfig } from './ts-config';
 
 const manifestWriteOptions: FoundryVTT.Manifest.WriteOptions = {
   injectCss: true,

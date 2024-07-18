@@ -168,7 +168,7 @@ export class TsConfig {
   static #getTsExtensions(tsConfig: TsConfigJsonResolved): string[] {
     const excludeExtensions = ['.ts', '.tsx', '.d.ts'];
     if (tsConfig.compilerOptions?.allowJs) {
-      excludeExtensions.push('.js', '.jsx');
+      excludeExtensions.push('', '.jsx');
     }
     return excludeExtensions;
   }

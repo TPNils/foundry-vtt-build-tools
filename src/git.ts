@@ -1,8 +1,8 @@
 import * as chalk from 'chalk';
 import { context as githubContext } from '@actions/github';
-import { cli } from './cli.js';
-import { Version } from './version.js';
-import { FoundryVTT } from './foundy-vtt.js';
+import { cli } from './cli';
+import { Version } from './version';
+import { FoundryVTT } from './foundy-vtt';
 
 export class Git {
 

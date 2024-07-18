@@ -2,7 +2,7 @@ import { glob } from 'glob';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as open from 'open';
-import { Git } from './git.js';
+import { Git } from './git';
 import { Converter } from 'showdown';
 import { ChildProcess, spawn } from 'child_process';
 
@@ -44,7 +44,7 @@ export class FoundryVTT {
     const configPath = path.resolve(process.cwd(), 'foundryconfig.json');
 
     if (!fs.existsSync(configPath)) {
-      throw new Error(`Missing file: ${configPath}`);
+      return [];
     }
     
     const file: Record<string, Omit<FoundryVTT.RunConfig, 'runInstanceKey'>> = JSON.parse(fs.readFileSync(configPath, 'utf8'));

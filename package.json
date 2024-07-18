@@ -7,8 +7,8 @@
   },
   "scripts": {
     "git-gen": "ts-node ./src/git-generator.ts",
-    "dev": "npm run build",
-    "build": "tsc && node dist/index.js",
+    "dev": "ts-node ./src/default-builder.ts watch",
+    "build": "ts-node ./src/default-builder.ts build",
     "http": "http-server test-dist"
   },
   "author": "",

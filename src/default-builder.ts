@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import * as path from "path";
-import { build, compileReadme, preBuildValidation, watch, publish, rePublish, manifestForGithubCurrentVersion, manifestForGithubLatestVersion } from "./tasks.js";
-import { Args } from "./args.js";
-import { FoundryVTT } from "./foundy-vtt.js";
-import { Git } from "./git.js";
+import { build, compileReadme, preBuildValidation, watch, publish, rePublish, manifestForGithubCurrentVersion, manifestForGithubLatestVersion } from "./tasks";
+import { Args } from "./args";
+import { FoundryVTT } from "./foundy-vtt";
+import { Git } from "./git";
 
 async function start() {
   switch (process.argv[2]) {
@@ -20,7 +20,11 @@ async function start() {
     }
     case 'watch': {
       const srcDir = preBuildValidation().rootDir;
-      const manifest = FoundryVTT.readManifest(srcDir);
+      const manifest = FoundryVTT.readManifest(srcDir, {nullable: true});
+      if (!manifest) {
+        watch();
+        break;
+      }
       const fi = Args.getFoundryInstanceName();
       if (fi) {
         const outDir = path.join(FoundryVTT.getRunConfig(fi).dataPath, 'Data', `${manifest.type}s`, manifest.manifest.id);
