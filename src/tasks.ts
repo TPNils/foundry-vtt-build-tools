@@ -3,6 +3,7 @@ import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 import * as sass from 'sass';
 
+import { compilePack, extractPack } from '@foundryvtt/foundryvtt-cli';
 import { ChildProcess } from 'child_process';
 import { Git } from './git.js';
 import { FoundryVTT } from './foundy-vtt.js';
@@ -145,10 +146,33 @@ export async function build(outDir?: string): Promise<void> {
   const manifest = FoundryVTT.readManifest(rootDir, {nullable: true});
   await fsPromises.mkdir(outDir, {recursive: true});
   await cleanDir(outDir);
+  const packs = new Set<string>();
+  if (manifest) {
+    const manifestDir = path.dirname(manifest.filePath);
+    for (const pack of manifest?.manifest?.packs ?? []) {
+      packs.add(path.resolve(manifestDir, pack.path));
+    }
+  }
 
   // Exec build
   TsCompiler.createTsProgram({rootDir, outDir}).emit();
-  await Promise.all(TsConfig.getNonTsFiles(tsConfig).map(file => processFile(file, outDir!, rootDir)));
+  await Promise.all(TsConfig.getNonTsFiles(tsConfig).map(file => {
+    if (packs.has(file)) {
+      console.log('excl', file);
+      return;
+    }
+    for (const excl of packs) {
+      if (file.startsWith(excl)) {
+        console.log('excl', file);
+        return;
+      }
+    }
+    console.log('process', file);
+    return processFile(file, outDir!, rootDir);
+  }));
+  for (const pack of packs) {
+    compilePack(pack, targetOutputFile(pack, outDir, path.dirname(manifest.filePath)))
+  }
   if (manifest) {
     // Process again now that all other files are present
     await processFile(manifest.filePath, outDir, rootDir);
