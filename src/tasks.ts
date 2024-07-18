@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as open from 'open';
 import * as sass from 'sass';
 
-import { exec } from 'child_process';
+import { ChildProcess, exec } from 'child_process';
 import { buildMeta } from './build-meta';
 import { args } from './args';
 import { Git } from './git';
@@ -12,34 +12,6 @@ import { FoundryVTT } from './foundy-vtt';
 import { Version } from './version';
 import { TsCompiler } from './ts-compiler';
 import { TsConfig } from './ts-config';
-
-function startFoundry() {
-  if (!FoundryVTT.runConfigExists()) {
-    console.warn('Could not start foundry: foundryconfig.json not found in project root');
-    return;
-  }
-  const configs = args.getFoundryInstanceName() == null ? FoundryVTT.getRunConfigs() : [FoundryVTT.getRunConfig(args.getFoundryInstanceName()!)];
-  for (const config of configs) {
-    const cmd = `node "${path.join(config.foundryPath, 'resources', 'app', 'main.js')}" --dataPath="${config.dataPath}"`;
-    console.log('starting foundry: ', cmd)
-    const childProcess = exec(cmd);
-
-    let serverStarted = false;
-    childProcess.stdout!.on('data', function (data) {
-      process.stdout.write(data.replace(/^(foundryvtt)?/i, `$1 ${config.runInstanceKey}`));
-      if (!serverStarted) {
-        const result = /Server started and listening on port ([0-9]+)/i.exec(data.toString());
-        if (result) {
-          open(`http://localhost:${result[1]}/game`);
-        }
-      }
-    });
-    
-    childProcess.stderr!.on('data', function (data) {
-      process.stderr.write(data.replace(/^(foundryvtt)?/i, `$1 ${config.runInstanceKey}`));
-    });
-  }
-}
 
 function findMostCommonDir(files: Iterable<string>): string {
   const dirs = new Set<string>();
@@ -127,7 +99,6 @@ async function processFile(inputPath: string, outDir: string, rootDir: string): 
   }
 }
 
-
 export function preBuildValidation() {
   // Pre-build validation
   const tsConfig = TsConfig.getTsConfig();
@@ -147,7 +118,7 @@ export function preBuildValidation() {
   return {tsConfig, outDir, rootDir};
 }
 
-export async function build() {
+export async function build(): Promise<void> {
   // Pre-build validation
   const {tsConfig, outDir, rootDir} = preBuildValidation();
 
@@ -160,9 +131,12 @@ export async function build() {
   await Promise.all(TsConfig.getNonTsFiles(tsConfig).map(file => processFile(file, outDir, rootDir)));
 }
 
-export async function watch() {
+export async function watch(outDir?: string): Promise<{stop: () => void}> {
   // Pre-watch validation
-  const {tsConfig, outDir, rootDir} = preBuildValidation();
+  const {tsConfig, outDir: tsOutDir, rootDir} = preBuildValidation();
+  if (!outDir) {
+    outDir = tsOutDir;
+  }
 
   // Pre-watch preparation
   await fsPromises.mkdir(outDir, {recursive: true});
@@ -171,35 +145,54 @@ export async function watch() {
   // Exec watch
   const tsWatcher = TsCompiler.createTsWatch({rootDir});
   const nonTsWatcher = TsConfig.watchNonTsFiles(tsConfig);
-  nonTsWatcher.addListener('add', file => processFile(file, outDir, rootDir).catch(console.error));
-  nonTsWatcher.addListener('change', file => processFile(file, outDir, rootDir).catch(console.error));
-  nonTsWatcher.addListener('unlink', file => processFile(file, outDir, rootDir).catch(console.error));
+  nonTsWatcher.addListener('add', file => processFile(file, outDir!, rootDir).catch(console.error));
+  nonTsWatcher.addListener('change', file => processFile(file, outDir!, rootDir).catch(console.error));
+  nonTsWatcher.addListener('unlink', file => processFile(file, outDir!, rootDir).catch(console.error));
+
+  // Find a matching foundry server
+  let foundrySpawn: ChildProcess;
+  for (const fConfig of FoundryVTT.getRunConfigs()) {
+    if (outDir!.includes(path.normalize(fConfig.dataPath))) {
+      foundrySpawn = FoundryVTT.startServer(fConfig.runInstanceKey);
+      break;
+    }
+  }
+
+  return {
+    stop: () => {
+      tsWatcher.close();
+      nonTsWatcher.removeAllListeners();
+      if (foundrySpawn) {
+        foundrySpawn.kill();
+      }
+    }
+  }
 }
 
-export async function compileReadme() {
+export async function compileReadme(): Promise<void> {
   const html = await FoundryVTT.markdownToHtml(fs.readFileSync('./README.md', 'utf8'));
   fs.writeFileSync('./README.html', html, 'utf8');
 }
 
-export async function manifestForGithubCurrentVersion() {
+export async function manifestForGithubCurrentVersion(): Promise<void> {
   const manifest = FoundryVTT.readManifest(buildMeta.getSrcPath());
   await Git.setGithubLinks(manifest.manifest, false);
   await FoundryVTT.writeManifest(manifest, {injectCss: true, injectHbs: true, injectOlderVersionProperties: true});
 }
 
-export async function manifestForGithubLatestVersion() {
+export async function manifestForGithubLatestVersion(): Promise<void> {
   const manifest = FoundryVTT.readManifest(buildMeta.getSrcPath());
   await Git.setGithubLinks(manifest.manifest, true);
   await FoundryVTT.writeManifest(manifest, {injectCss: true, injectHbs: true, injectOlderVersionProperties: true});
 }
 
-export async function rePublish() {
+export async function rePublish(): Promise<void> {
   const currentVersion = await Git.getLatestVersionTag();
   await Git.deleteVersionTag(currentVersion);
   await Git.tagCurrentVersion(currentVersion);
 }
 
-export async function publish() {
+export async function publish(): Promise<void> {
   await args.validateVersion();
   await Git.validateCleanRepo();
 

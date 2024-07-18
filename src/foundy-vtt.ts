@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Git } from './git';
 import { Converter } from 'showdown';
+import { ChildProcess, spawn } from 'child_process';
 
 export class FoundryVTT {
 
@@ -118,6 +119,29 @@ export class FoundryVTT {
       simplifiedAutoLink: true,
     });
     return converter.makeHtml(markdown);
+  }
+
+  public static startServer(runInstanceKey: string): ChildProcess {
+    const config = FoundryVTT.getRunConfig(runInstanceKey)
+    const childProcess = spawn('node', [path.join(config.foundryPath, 'resources', 'app', 'main.js'), `--dataPath="${config.dataPath}"`]);
+    console.log('starting foundry: ', `${childProcess.spawnfile} ${childProcess.spawnargs.join(' ')}`)
+
+    let serverStarted = false;
+    childProcess.stdout!.on('data', function (data) {
+      process.stdout.write(data.replace(/^(foundryvtt)?/i, `$1 ${config.runInstanceKey}`));
+      if (!serverStarted) {
+        const result = /Server started and listening on port ([0-9]+)/i.exec(data.toString());
+        if (result) {
+          open(`http://localhost:${result[1]}/game`);
+        }
+      }
+    });
+    
+    childProcess.stderr!.on('data', function (data) {
+      process.stderr.write(data.replace(/^(foundryvtt)?/i, `$1 ${config.runInstanceKey}`));
+    });
+
+    return childProcess;
   }
   
   static #toLatestVersion(input: Partial<FoundryVTT.Manifest.V8 & FoundryVTT.Manifest.V10 & FoundryVTT.Manifest.V11>): FoundryVTT.Manifest.V11 {
