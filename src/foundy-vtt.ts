@@ -1,6 +1,7 @@
 import { glob } from 'glob';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as open from 'open';
 import { Git } from './git';
 import { Converter } from 'showdown';
 import { ChildProcess, spawn } from 'child_process';
