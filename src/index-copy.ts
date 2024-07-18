@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as open from 'open';
+import { getTsconfig } from 'get-tsconfig';
 
 import { exec } from 'child_process';
 import { buildMeta } from './build-meta';
@@ -9,6 +10,7 @@ import { Git } from './git';
 import { FoundryVTT } from './foundy-vtt';
 import { Version } from './version';
 import { TsCompiler } from './ts-compiler';
+import { TsConfig } from './ts-config';
 
 function startFoundry() {
   if (!FoundryVTT.runConfigExists()) {
@@ -83,6 +85,17 @@ export async function publish() {
 }
 
 async function start() {
-  console.log(await TsCompiler.createTsWatch())
+  let changed = 0;
+  const listener = TsConfig.watchNonTsFiles();
+  listener.addListener('add', (file: string, stats?: fs.Stats) => {
+    console.log('add', file);
+  })
+  listener.addListener('change', (file: string, stats?: fs.Stats) => {
+    console.log('change', file);
+    changed++;
+    if (changed >= 2) {
+      listener.removeAllListeners();
+    }
+  })
 }
 start();
