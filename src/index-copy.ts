@@ -66,7 +66,12 @@ function findMostCommonDir(files: Iterable<string>): string {
     mostCommonDir = mostCommonDir.substring(0, lastCommonCharIndex);
   }
 
-  return mostCommonDir;
+  try {
+    return fs.statSync(mostCommonDir)?.isDirectory() ? mostCommonDir : path.dirname(mostCommonDir)
+  } catch {
+    // File does not exist
+    return path.dirname(mostCommonDir);
+  }
 }
 
 export async function compileReadme() {
