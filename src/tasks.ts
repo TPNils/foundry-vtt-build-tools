@@ -142,15 +142,17 @@ export async function build(outDir?: string): Promise<void> {
   }
 
   // Pre-build preparation
-  const manifest = FoundryVTT.readManifest(rootDir);
+  const manifest = FoundryVTT.readManifest(rootDir, {nullable: true});
   await fsPromises.mkdir(outDir, {recursive: true});
   await cleanDir(outDir);
 
   // Exec build
   TsCompiler.createTsProgram({rootDir, outDir}).emit();
   await Promise.all(TsConfig.getNonTsFiles(tsConfig).map(file => processFile(file, outDir!, rootDir)));
-  // Process again now that all other files are present
-  await processFile(manifest.filePath, outDir, rootDir);
+  if (manifest) {
+    // Process again now that all other files are present
+    await processFile(manifest.filePath, outDir, rootDir);
+  }
 }
 
 export async function watch(outDir?: string): Promise<{stop: () => void}> {
@@ -161,7 +163,7 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
   }
 
   // Pre-watch preparation
-  const manifest = FoundryVTT.readManifest(rootDir);
+  const manifest = FoundryVTT.readManifest(rootDir, {nullable: true});
   await fsPromises.mkdir(outDir, {recursive: true});
   await cleanDir(outDir);
 
@@ -172,8 +174,10 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
   nonTsWatcher.addListener('add', fileCb);
   nonTsWatcher.addListener('change', fileCb);
   nonTsWatcher.addListener('unlink', fileCb);
-  // Process manifest (again) now that all other files are present
-  nonTsWatcher.once('ready', () => processFile(manifest.filePath, outDir!, rootDir));
+  if (manifest) {
+    // Process manifest (again) now that all other files are present
+    nonTsWatcher.once('ready', () => processFile(manifest.filePath, outDir!, rootDir));
+  }
 
   // Find a matching foundry server
   let foundrySpawn: ChildProcess;

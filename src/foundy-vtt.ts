@@ -72,13 +72,20 @@ export class FoundryVTT {
     return response;
   }
 
-  public static readManifest(fileOrDirPath: string): FoundryVTT.Manifest {
+  public static readManifest(fileOrDirPath: string): FoundryVTT.Manifest
+  public static readManifest(fileOrDirPath: string, options: {nullable: true}): FoundryVTT.Manifest | null
+  public static readManifest(fileOrDirPath: string, {nullable=false} = {}): FoundryVTT.Manifest | null {
     if (fs.statSync(fileOrDirPath).isDirectory()) {
-      if (fs.statSync(path.join(fileOrDirPath, 'module.json')).isFile()) {
-        fileOrDirPath = path.join(fileOrDirPath, 'module.json');
-      } else if (fs.statSync(path.join(fileOrDirPath, 'system.json')).isFile()) {
-        fileOrDirPath = path.join(fileOrDirPath, 'system.json');
+      const module = path.join(fileOrDirPath, 'module.json');
+      const system = path.join(fileOrDirPath, 'system.json');
+      if (fs.existsSync(module) && fs.statSync(module).isFile()) {
+        fileOrDirPath = module;
+      } else if (fs.existsSync(system) && fs.statSync(system).isFile()) {
+        fileOrDirPath = system;
       } else {
+        if (nullable) {
+          return null;
+        }
         throw new Error(`Could not find a module.json or system.json in path ${fileOrDirPath}`)
       }
     }
@@ -378,6 +385,7 @@ export class FoundryVTT {
 
     for (const key of propertyOrder) {
       if (key in shallowClone) {
+        // @ts-ignore
         obj[key] = shallowClone[key];
       }
     }
