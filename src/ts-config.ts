@@ -17,6 +17,7 @@ export namespace TsConfig {
     add: [string, fs.Stats?];
     change: [string, fs.Stats?];
     unlink: [string, fs.Stats?];
+    ready: [];
   }
 
   export type WatchEventMap = BaseWatchEventMap & DefaultEventMap<BaseWatchEventMap>;
@@ -69,10 +70,8 @@ export class TsConfig {
     }
 
     const {files, inclGlobs, exclGlobs} = TsConfig.#getIncExcl(tsConfig.config);
-
-
     const eventEmitter = new EventEmitter<TsConfig.WatchEventMap>({captureRejections: true});
-    const listenEvents: Array<keyof TsConfig.BaseWatchEventMap> = ['add', 'change', 'unlink'];
+    const listenEvents: Array<keyof TsConfig.BaseWatchEventMap> = ['add', 'change', 'unlink', 'ready'];
 
     let watcher: fs.FSWatcher;
     let listeners = 0;
@@ -91,9 +90,9 @@ export class TsConfig {
           ignoreInitial: false,
         });
 
-        watcher.addListener('add', (...args: [string]) => eventEmitter.emit('add', ...args));
-        watcher.addListener('change', (...args: [string]) => eventEmitter.emit('change', ...args));
-        watcher.addListener('unlink', (...args: [string]) => eventEmitter.emit('unlink', ...args));
+        for (const forwardEvent of listenEvents) {
+          watcher.addListener(forwardEvent, (...args: []) => eventEmitter.emit(forwardEvent, ...args))
+        }
       }
       listeners++;
     })

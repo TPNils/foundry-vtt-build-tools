@@ -90,6 +90,9 @@ async function start() {
   listener.addListener('add', (file: string, stats?: fs.Stats) => {
     console.log('add', file);
   })
+  listener.addListener('ready', () => {
+    console.log('ready');
+  })
   listener.addListener('change', (file: string, stats?: fs.Stats) => {
     console.log('change', file);
     changed++;
