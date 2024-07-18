@@ -1,7 +1,7 @@
 import { getTsconfig, TsConfigJsonResolved, TsConfigResult } from 'get-tsconfig';
 import * as path from 'path';
 import * as fs from 'fs';
-import { GlobSync } from 'glob';
+import { GlobSync, IOptions as GlobOptions } from 'glob';
 import * as GlobWatcher from 'glob-watcher';
 import { EventEmitter } from 'stream';
 
@@ -37,27 +37,24 @@ export class TsConfig {
   public static getNonTsFiles(): string[] {
     const tsConfig = TsConfig.getTsConfig();
     const {files, inclGlobs, exclGlobs} = TsConfig.#getIncExcl(tsConfig.config);
+    const globConfig: GlobOptions = {
+      cwd: path.dirname(tsConfig.path),
+      nodir: true,
+      absolute: true,
+    };
     
     // Should not affect tsConfig.config.files
     // https://www.typescriptlang.org/tsconfig/#exclude
     const excludeFileGlobs = new Set<string>();
     for (const glob of exclGlobs) {
-      const globSync = new GlobSync(glob, {
-        cwd: path.basename(tsConfig.path),
-        nodir: true,
-        absolute: true,
-      });
+      const globSync = new GlobSync(glob, {...globConfig});
       for (const file of globSync.found) {
         excludeFileGlobs.add(file);
       }
     }
     
     for (const glob of inclGlobs) {
-      const globSync = new GlobSync(glob, {
-        cwd: path.basename(tsConfig.path),
-        nodir: true,
-        absolute: true,
-      });
+      const globSync = new GlobSync(glob, {...globConfig});
       for (const file of globSync.found) {
         if (!excludeFileGlobs.has(file)) {
           files.add(file);
