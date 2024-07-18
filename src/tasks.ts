@@ -1,11 +1,9 @@
 import * as fs from 'fs';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
-import * as open from 'open';
 import * as sass from 'sass';
 
-import { ChildProcess, exec } from 'child_process';
-import { buildMeta } from './build-meta';
+import { ChildProcess } from 'child_process';
 import { args } from './args';
 import { Git } from './git';
 import { FoundryVTT } from './foundy-vtt';
@@ -178,13 +176,15 @@ export async function compileReadme(): Promise<void> {
 }
 
 export async function manifestForGithubCurrentVersion(): Promise<void> {
-  const manifest = FoundryVTT.readManifest(buildMeta.getSrcPath());
+  const srcPath = preBuildValidation().rootDir;
+  const manifest = FoundryVTT.readManifest(srcPath);
   await Git.setGithubLinks(manifest.manifest, false);
   await FoundryVTT.writeManifest(manifest, {injectCss: true, injectHbs: true, injectOlderVersionProperties: true});
 }
 
 export async function manifestForGithubLatestVersion(): Promise<void> {
-  const manifest = FoundryVTT.readManifest(buildMeta.getSrcPath());
+  const srcPath = preBuildValidation().rootDir;
+  const manifest = FoundryVTT.readManifest(srcPath);
   await Git.setGithubLinks(manifest.manifest, true);
   await FoundryVTT.writeManifest(manifest, {injectCss: true, injectHbs: true, injectOlderVersionProperties: true});
 }
@@ -199,7 +199,8 @@ export async function publish(): Promise<void> {
   await args.validateVersion();
   await Git.validateCleanRepo();
 
-  const manifest = FoundryVTT.readManifest(buildMeta.getSrcPath());
+  const srcPath = preBuildValidation().rootDir;
+  const manifest = FoundryVTT.readManifest(srcPath);
   const newVersion = args.getNextVersion(await Git.getLatestVersionTag());
   manifest.manifest.version = Version.toString(newVersion);
   await Git.setGithubLinks(manifest.manifest, false);
