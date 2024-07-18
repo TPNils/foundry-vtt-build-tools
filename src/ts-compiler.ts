@@ -1,6 +1,6 @@
 
-import * as path from 'path';
-import * as ts from 'typescript';
+import path from 'path';
+import ts from 'typescript';
 import { MinifyOptions, minify } from 'uglify-js';
 
 const jsMapSymbol = Symbol('jsMap');

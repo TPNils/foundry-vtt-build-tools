@@ -2,8 +2,8 @@ import { glob } from 'glob';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as open from 'open';
-import { Git } from './git';
-import { Converter } from 'showdown';
+import { Git } from './git.js';
+import showdown from 'showdown';
 import { ChildProcess, spawn } from 'child_process';
 
 export class FoundryVTT {
@@ -127,7 +127,7 @@ export class FoundryVTT {
       markdown = markdown.replace(/(\[(.*?[^\\](?:\\\\)*)]\()\//g, `$1https://github.com/${githubRepository}/raw/${commitHash}/`)
     }
     
-    const converter = new Converter({
+    const converter = new showdown.Converter({
       simplifiedAutoLink: true,
     });
     return converter.makeHtml(markdown);

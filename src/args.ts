@@ -1,4 +1,4 @@
-import { Version } from "./version";
+import { Version } from './version.js';
 import * as chalk from 'chalk';
 import * as yargs from 'yargs';
 

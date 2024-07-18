@@ -1,9 +1,9 @@
 import { getTsconfig, TsConfigJsonResolved, TsConfigResult } from 'get-tsconfig';
-import * as path from 'path';
-import * as fs from 'fs';
+import path from 'path';
+import fs from 'fs';
 import { globSync, GlobOptionsWithFileTypesFalse } from 'glob';
-import * as GlobWatcher from 'glob-watcher';
-import { EventEmitter } from 'stream';
+import GlobWatcher from 'glob-watcher';
+import stream from 'stream';
 
 export namespace TsConfig {
   type TupleLookup<T, K> = K extends keyof T ? [K, T[K] extends any[] ? (...args: T[K])=>void : never] : never;
@@ -39,9 +39,9 @@ export class TsConfig {
     return TsConfig.#filterNonTsFiles(tsConfig.config, TsConfig.getAllFiles(tsConfig));
   }
 
-  public static watchNonTsFiles(tsConfig: TsConfigResult = TsConfig.getTsConfig()): EventEmitter<TsConfig.BaseWatchEventMap> {
+  public static watchNonTsFiles(tsConfig: TsConfigResult = TsConfig.getTsConfig()) {
     const {files, inclGlobs, exclGlobs} = TsConfig.#getIncExcl(tsConfig.config);
-    const eventEmitter = new EventEmitter<TsConfig.WatchEventMap>({captureRejections: true});
+    const eventEmitter = new stream.EventEmitter<TsConfig.WatchEventMap>({captureRejections: true});
     const listenEvents: Array<keyof TsConfig.BaseWatchEventMap> = ['add', 'change', 'unlink', 'ready'];
 
     let watcher: fs.FSWatcher;

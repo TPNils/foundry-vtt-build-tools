@@ -1,14 +1,14 @@
 {
   "name": "foundry-vtt-build-tools",
   "version": "0.0.0",
-  "main": "index.js",
+  "type": "module",
   "bin": {
     "foundry-vtt-build-tools": "dist/default-builder.js"
   },
   "scripts": {
     "git-gen": "ts-node ./src/git-generator.ts",
-    "dev": "ts-node ./src/default-builder.ts watch",
-    "build": "ts-node ./src/default-builder.ts build",
+    "dev": "node --loader ts-node/esm./src/default-builder.ts watch",
+    "build": "node --loader ts-node/esm ./src/default-builder.ts build",
     "http": "http-server test-dist"
   },
   "author": "",

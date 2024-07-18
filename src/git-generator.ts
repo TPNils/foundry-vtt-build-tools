@@ -1,5 +1,5 @@
 import { createWriteStream } from 'fs';
-import { cli } from './cli';
+import { cli } from './cli.js';
 
 class Generator {
 
