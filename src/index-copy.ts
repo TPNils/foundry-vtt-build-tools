@@ -1,7 +1,8 @@
 import * as fs from 'fs';
+import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 import * as open from 'open';
-import { getTsconfig } from 'get-tsconfig';
+import * as sass from 'sass';
 
 import { exec } from 'child_process';
 import { buildMeta } from './build-meta';
@@ -74,6 +75,67 @@ function findMostCommonDir(files: Iterable<string>): string {
   }
 }
 
+async function cleanDir(dir: string): Promise<void> {
+  const promises: Promise<any>[] = [];
+  for (const file of await fsPromises.readdir(dir)) {
+    promises.push(fsPromises.rm(path.join(dir, file), {recursive: true}));
+  }
+  await Promise.all(promises);
+}
+
+async function processFile(inputPath: string, outDir: string, rootDir: string): Promise<void> {
+  let outFileName = path.join(outDir, path.relative(rootDir, inputPath));
+  switch (path.extname(inputPath).toLowerCase()) {
+    case '.sass':
+    case '.scss': {
+      const compileResult = await sass.compileAsync(inputPath);
+      outFileName = outFileName.replace(/\.s[ac]ss$/i, '.css');
+      await fsPromises.mkdir(path.dirname(outFileName), {recursive: true});
+      await fsPromises.writeFile(outFileName, compileResult.css);
+      break;
+    }
+    // case '.less': {
+    //   // TODO
+    //   throw new Error('TODO less compiler not supported yet')
+    // }
+    default: {
+      await fsPromises.mkdir(path.dirname(outFileName), {recursive: true});
+      const inputStream = fs.createReadStream(inputPath);
+      const outputStream = fs.createWriteStream(outFileName);
+      inputStream.pipe(outputStream, {end: true});
+      await new Promise<void>((resolve, reject) => {
+        outputStream.on('finish', resolve);
+        outputStream.on('error', reject);
+      });
+    }
+  }
+}
+
+export async function build() {
+  // Pre-build validation
+  const tsConfig = TsConfig.getTsConfig();
+  const outDir = path.resolve(path.dirname(tsConfig.path), tsConfig.config.compilerOptions?.outDir ?? 'dist');
+  const allFiles = TsConfig.getAllFiles(tsConfig);
+  const rootDir = tsConfig.config.compilerOptions?.rootDir ?? findMostCommonDir(allFiles);
+  const inputFilesInOutDir: string[] = [];
+  for (const file of allFiles) {
+    if (file.startsWith(outDir)) {
+      inputFilesInOutDir.push(file);
+    }
+  }
+  if (inputFilesInOutDir.length > 0) {
+    throw new Error(`No input files are allowed in the output dir.\nOutput dir:${outDir}\nConflicting input files:${inputFilesInOutDir.map(f => `\n- ${f}`)}`)
+  }
+
+  // Pre-build preparation
+  await fsPromises.mkdir(outDir, {recursive: true});
+  await cleanDir(outDir);
+
+  // Exec build
+  TsCompiler.createTsProgram({rootDir}).emit();
+  await Promise.all(TsConfig.getNonTsFiles().map(tsFile => processFile(tsFile, outDir, rootDir!)));
+}
+
 export async function compileReadme() {
   const html = await FoundryVTT.markdownToHtml(fs.readFileSync('./README.md', 'utf8'));
   fs.writeFileSync('./README.html', html, 'utf8');
@@ -119,6 +181,6 @@ export async function publish() {
 }
 
 async function start() {
-  console.log(findMostCommonDir(TsConfig.getNonTsFiles()))
+  build()
 }
 start();

@@ -7,7 +7,7 @@ const jsMapSymbol = Symbol('jsMap');
 
 export class TsCompiler {
 
-  public static createTsWatch(): ts.WatchOfConfigFile<any> {
+  public static createTsWatch(optionsToExtend: ts.CompilerOptions = {}): ts.WatchOfConfigFile<any> {
     const configPath = ts.findConfigFile('./', ts.sys.fileExists, 'tsconfig.json');
     if (!configPath) {
       throw new Error("Could not find a valid 'tsconfig.json'.");
@@ -39,7 +39,7 @@ export class TsCompiler {
     // a set of root files.
     const host = ts.createWatchCompilerHost(
       configPath,
-      {},
+      optionsToExtend,
       ts.sys,
       createProgram,
       TsCompiler.#reportDiagnostic,
@@ -51,13 +51,13 @@ export class TsCompiler {
     return ts.createWatchProgram(host);
   }
 
-  public static createTsProgram(): ts.Program {
+  public static createTsProgram(optionsToExtend: ts.CompilerOptions = {}): ts.Program {
     const configPath = ts.findConfigFile('./', ts.sys.fileExists, 'tsconfig.json');
     if (!configPath) {
       throw new Error("Could not find a valid 'tsconfig.json'.");
     }
 
-    const commandLine = ts.getParsedCommandLineOfConfigFile(configPath, {}, {...ts.sys, onUnRecoverableConfigFileDiagnostic: TsCompiler.#throwDiagnostic})!;
+    const commandLine = ts.getParsedCommandLineOfConfigFile(configPath, optionsToExtend, {...ts.sys, onUnRecoverableConfigFileDiagnostic: TsCompiler.#throwDiagnostic})!;
     TsCompiler.#throwDiagnostic(commandLine.errors);
 
     const host: ts.CompilerHost = ts.createCompilerHost(commandLine.options);
