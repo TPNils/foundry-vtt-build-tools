@@ -1,7 +1,7 @@
 import { getTsconfig, TsConfigJsonResolved, TsConfigResult } from 'get-tsconfig';
 import * as path from 'path';
 import * as fs from 'fs';
-import { GlobSync, IOptions as GlobOptions } from 'glob';
+import { globSync, GlobOptionsWithFileTypesFalse } from 'glob';
 import * as GlobWatcher from 'glob-watcher';
 import { EventEmitter } from 'stream';
 
@@ -83,8 +83,9 @@ export class TsConfig {
 
   public static getAllFiles(tsConfig: TsConfigResult = TsConfig.getTsConfig()): Set<string> {
     const {files, inclGlobs, exclGlobs} = TsConfig.#getIncExcl(tsConfig.config);
-    const globConfig: GlobOptions = {
+    const globConfig: GlobOptionsWithFileTypesFalse = {
       cwd: path.dirname(tsConfig.path),
+      withFileTypes: false,
       nodir: true,
       absolute: true,
     };
@@ -93,15 +94,15 @@ export class TsConfig {
     // https://www.typescriptlang.org/tsconfig/#exclude
     const excludeFileGlobs = new Set<string>();
     for (const glob of exclGlobs) {
-      const globSync = new GlobSync(glob, {...globConfig});
-      for (const file of globSync.found) {
+      const globResult = globSync(glob, {...globConfig});
+      for (const file of globResult) {
         excludeFileGlobs.add(file);
       }
     }
     
     for (const glob of inclGlobs) {
-      const globSync = new GlobSync(glob, {...globConfig});
-      for (const file of globSync.found) {
+      const globResult = globSync(glob, {...globConfig});
+      for (const file of globResult) {
         if (!excludeFileGlobs.has(file)) {
           files.add(file);
         }

@@ -1,4 +1,4 @@
-import * as glob from 'glob';
+import { glob } from 'glob';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Git } from './git';
@@ -223,15 +223,7 @@ export class FoundryVTT {
   }
 
   static async #injectCss(input: FoundryVTT.Manifest.LatestVersion, findInDir: string): Promise<void> {
-    const cssFileGlobResult = await new Promise<string[]>((resolve, reject) => {
-      glob(path.join(findInDir, '**/*.css'), (err: any, matches: string[]) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(matches);
-      })
-    });
+    const cssFileGlobResult = await glob(path.join(findInDir, '**/*.css'));
   
     const cssFiles = new Set<string | null>();
     for (const fileNames of cssFileGlobResult) {
@@ -255,15 +247,7 @@ export class FoundryVTT {
   }
 
   static async #injectHbs(input: FoundryVTT.Manifest.LatestVersion, findInDir: string): Promise<void> {
-    const hbsGlobFiles = await new Promise<string[]>((resolve, reject) => {
-      glob(path.join(findInDir, '**/*.hbs'), (err: any, matches: string[]) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(matches);
-      })
-    });
+    const hbsGlobFiles = await glob(path.join(findInDir, '**/*.hbs'));
   
     const hbsFiles = new Set<string | null>();
     for (const fileNames of hbsGlobFiles) {
