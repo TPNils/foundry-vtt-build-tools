@@ -1,20 +1,12 @@
 {
   "compilerOptions": {
+    "module": "CommonJS",
     "moduleResolution": "node",
     "outDir": "dist",
     "target": "ES6",
-    "experimentalDecorators": true,
     "skipLibCheck": true,
-    "sourceMap": true,
-    "allowUmdGlobalAccess": true
+    "sourceMap": true
   },
   "include": [ "src/**/*" ],
   "exclude": ["node_modules"],
-  "ts-node": {
-    "compilerOptions": {
-      "strictNullChecks": false,
-      "allowSyntheticDefaultImports": false,
-      "skipLibCheck": true
-    }
-  }
 }

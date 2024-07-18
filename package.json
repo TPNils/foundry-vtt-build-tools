@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "git-gen": "ts-node ./src/git-generator.ts",
-    "dev": "ts-node ./src/index.ts",
+    "dev": "npm run build",
+    "build": "tsc && node dist/index.js",
     "http": "http-server test-dist"
   },
   "author": "",
