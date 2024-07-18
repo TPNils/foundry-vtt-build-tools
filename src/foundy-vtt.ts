@@ -89,8 +89,8 @@ export class FoundryVTT {
     };
   }
 
-  public static async writeManifest(manifest: FoundryVTT.Manifest, options: FoundryVTT.Manifest.WriteOptions = {}): Promise<void> {
-    let fileContent: FoundryVTT.Manifest['manifest'] = JSON.parse(JSON.stringify(manifest.manifest));
+  public static async serializeManifest(manifest: FoundryVTT.Manifest, options: FoundryVTT.Manifest.WriteOptions = {}): Promise<string> {
+    let fileContent: FoundryVTT.Manifest.LatestVersion = JSON.parse(JSON.stringify(manifest.manifest));
     if (options.injectCss) {
       await FoundryVTT.#injectCss(fileContent, path.dirname(manifest.filePath));
     }
@@ -103,9 +103,14 @@ export class FoundryVTT {
         FoundryVTT.#injectV9Properties(fileContent);
       }
     }
+    console.log(fileContent);
     
     fileContent = FoundryVTT.#sortProperties(fileContent);
-    fs.writeFileSync(manifest.filePath, JSON.stringify(fileContent, null, 2));
+    return JSON.stringify(fileContent, null, 2);
+  }
+
+  public static async writeManifest(manifest: FoundryVTT.Manifest, options?: FoundryVTT.Manifest.WriteOptions): Promise<void> {
+    fs.writeFileSync(manifest.filePath, await FoundryVTT.serializeManifest(manifest, options));
   }
 
   public static async markdownToHtml(markdown: string): Promise<string> {

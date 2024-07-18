@@ -10,6 +10,12 @@ import { Version } from './version';
 import { TsCompiler } from './ts-compiler';
 import { TsConfig } from './ts-config';
 
+const manifestWriteOptions: FoundryVTT.Manifest.WriteOptions = {
+  injectCss: true,
+  injectHbs: true,
+  injectOlderVersionProperties: true,
+}
+
 function findMostCommonDir(files: Iterable<string>): string {
   const dirs = new Set<string>();
   for (const file of files) {
@@ -53,7 +59,7 @@ async function cleanDir(dir: string): Promise<void> {
 }
 
 async function processFile(inputPath: string, outDir: string, rootDir: string): Promise<void> {
-  let outputPath = path.join(outDir, path.relative(rootDir, inputPath));
+  let outputPath = targetOutputFile(inputPath, outDir, rootDir);
   const ext = path.extname(inputPath).toLowerCase();
   switch (ext) {
     case '.sass':
@@ -69,6 +75,15 @@ async function processFile(inputPath: string, outDir: string, rootDir: string): 
       await fsPromises.rm(outputPath, {recursive: true});
     }
     return;
+  }
+
+  switch (path.basename(inputPath)) {
+    case 'module.json':
+    case 'system.json': {
+      const manifest = FoundryVTT.readManifest(inputPath);
+      FoundryVTT.writeManifest({...manifest, filePath: outputPath}, manifestWriteOptions);
+      return;
+    }
   }
 
   switch (ext) {
@@ -94,6 +109,10 @@ async function processFile(inputPath: string, outDir: string, rootDir: string): 
       });
     }
   }
+}
+
+function targetOutputFile(inputPath: string, outDir: string, rootDir: string): string {
+  return path.join(outDir, path.relative(rootDir, inputPath));
 }
 
 export function preBuildValidation() {
@@ -123,12 +142,15 @@ export async function build(outDir?: string): Promise<void> {
   }
 
   // Pre-build preparation
+  const manifest = FoundryVTT.readManifest(rootDir);
   await fsPromises.mkdir(outDir, {recursive: true});
   await cleanDir(outDir);
 
   // Exec build
   TsCompiler.createTsProgram({rootDir, outDir}).emit();
   await Promise.all(TsConfig.getNonTsFiles(tsConfig).map(file => processFile(file, outDir!, rootDir)));
+  // Process again now that all other files are present
+  await processFile(manifest.filePath, outDir, rootDir);
 }
 
 export async function watch(outDir?: string): Promise<{stop: () => void}> {
@@ -139,15 +161,19 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
   }
 
   // Pre-watch preparation
+  const manifest = FoundryVTT.readManifest(rootDir);
   await fsPromises.mkdir(outDir, {recursive: true});
   await cleanDir(outDir);
 
   // Exec watch
+  const fileCb = (file: string) => processFile(file, outDir!, rootDir).catch(console.error);
   const tsWatcher = TsCompiler.createTsWatch({rootDir, outDir});
   const nonTsWatcher = TsConfig.watchNonTsFiles(tsConfig);
-  nonTsWatcher.addListener('add', file => processFile(file, outDir!, rootDir).catch(console.error));
-  nonTsWatcher.addListener('change', file => processFile(file, outDir!, rootDir).catch(console.error));
-  nonTsWatcher.addListener('unlink', file => processFile(file, outDir!, rootDir).catch(console.error));
+  nonTsWatcher.addListener('add', fileCb);
+  nonTsWatcher.addListener('change', fileCb);
+  nonTsWatcher.addListener('unlink', fileCb);
+  // Process manifest (again) now that all other files are present
+  nonTsWatcher.once('ready', () => processFile(manifest.filePath, outDir!, rootDir));
 
   // Find a matching foundry server
   let foundrySpawn: ChildProcess;
@@ -178,14 +204,14 @@ export async function manifestForGithubCurrentVersion(): Promise<void> {
   const srcPath = preBuildValidation().rootDir;
   const manifest = FoundryVTT.readManifest(srcPath);
   await Git.setGithubLinks(manifest.manifest, false);
-  await FoundryVTT.writeManifest(manifest, {injectCss: true, injectHbs: true, injectOlderVersionProperties: true});
+  await FoundryVTT.writeManifest(manifest, manifestWriteOptions);
 }
 
 export async function manifestForGithubLatestVersion(): Promise<void> {
   const srcPath = preBuildValidation().rootDir;
   const manifest = FoundryVTT.readManifest(srcPath);
   await Git.setGithubLinks(manifest.manifest, true);
-  await FoundryVTT.writeManifest(manifest, {injectCss: true, injectHbs: true, injectOlderVersionProperties: true});
+  await FoundryVTT.writeManifest(manifest, manifestWriteOptions);
 }
 
 export async function rePublish(): Promise<void> {
@@ -206,7 +232,7 @@ export async function publish(newVersion: Version): Promise<void> {
   const manifest = FoundryVTT.readManifest(srcPath);
   manifest.manifest.version = Version.toString(newVersion);
   await Git.setGithubLinks(manifest.manifest, false);
-  await FoundryVTT.writeManifest(manifest, {injectCss: true, injectHbs: true, injectOlderVersionProperties: true});
+  await FoundryVTT.writeManifest(manifest, manifestWriteOptions);
 
   const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
   packageJson.version = manifest.manifest.version;
