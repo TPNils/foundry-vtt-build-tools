@@ -1,4 +1,4 @@
-import { getTsconfig, TsConfigJsonResolved } from 'get-tsconfig';
+import { getTsconfig, TsConfigJsonResolved, TsConfigResult } from 'get-tsconfig';
 import * as path from 'path';
 import * as fs from 'fs';
 import { GlobSync } from 'glob';
@@ -25,12 +25,17 @@ export namespace TsConfig {
 
 export class TsConfig {
 
-  public static getNonTsFiles(): string[] {
+  public static getTsConfig(): TsConfigResult {
     const tsConfig = getTsconfig();
     if (!tsConfig) {
       throw new Error(`Could not find a valid 'tsconfig.json'`);
     }
 
+    return tsConfig;
+  }
+
+  public static getNonTsFiles(): string[] {
+    const tsConfig = TsConfig.getTsConfig();
     const {files, inclGlobs, exclGlobs} = TsConfig.#getIncExcl(tsConfig.config);
     
     // Should not affect tsConfig.config.files
@@ -64,11 +69,7 @@ export class TsConfig {
   }
 
   public static watchNonTsFiles(): EventEmitter<TsConfig.BaseWatchEventMap> {
-    const tsConfig = getTsconfig();
-    if (!tsConfig) {
-      throw new Error(`Could not find a valid 'tsconfig.json'`);
-    }
-
+    const tsConfig = TsConfig.getTsConfig();
     const {files, inclGlobs, exclGlobs} = TsConfig.#getIncExcl(tsConfig.config);
     const eventEmitter = new EventEmitter<TsConfig.WatchEventMap>({captureRejections: true});
     const listenEvents: Array<keyof TsConfig.BaseWatchEventMap> = ['add', 'change', 'unlink', 'ready'];
