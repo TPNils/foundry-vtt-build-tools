@@ -110,7 +110,6 @@ export class FoundryVTT {
         FoundryVTT.#injectV9Properties(fileContent);
       }
     }
-    console.log(fileContent);
     
     fileContent = FoundryVTT.#sortProperties(fileContent);
     return JSON.stringify(fileContent, null, 2);
