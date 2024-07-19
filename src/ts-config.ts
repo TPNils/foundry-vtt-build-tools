@@ -78,7 +78,7 @@ export class TsConfig {
       }
     })
     
-    return eventEmitter as any;
+    return eventEmitter;
   }
 
   public static getAllFiles(tsConfig: TsConfigResult = TsConfig.getTsConfig()): Set<string> {
