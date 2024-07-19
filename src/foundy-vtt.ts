@@ -1,7 +1,7 @@
 import { glob } from 'glob';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as open from 'open';
+import fs from 'fs';
+import path from 'path';
+import open from 'open';
 import { Git } from './git.js';
 import showdown from 'showdown';
 import { ChildProcess, spawn } from 'child_process';

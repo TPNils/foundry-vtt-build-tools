@@ -1,4 +1,4 @@
-import * as chalk from 'chalk';
+import chalk from 'chalk';
 import { context as githubContext } from '@actions/github';
 import { cli } from './cli.js';
 import { Version } from './version.js';

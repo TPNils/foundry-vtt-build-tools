@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import * as path from "path";
+import path from "path";
 import { build, compileReadme, preBuildValidation, watch, publish, rePublish, manifestForGithubCurrentVersion, manifestForGithubLatestVersion } from './tasks.js';
 import { Args } from './args.js';
 import { FoundryVTT } from './foundy-vtt.js';
