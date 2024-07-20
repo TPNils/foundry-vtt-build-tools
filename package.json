@@ -9,6 +9,9 @@
     "git-gen": "ts-node ./src/git-generator.ts",
     "dev": "node --loader ts-node/esm ./src/default-builder.ts watch",
     "build": "node --loader ts-node/esm ./src/default-builder.ts build",
+    "patch": "node --loader ts-node/esm ./src/default-builder.ts publish -u patch",
+    "minor": "node --loader ts-node/esm ./src/default-builder.ts publish -u minor",
+    "major": "node --loader ts-node/esm ./src/default-builder.ts publish -u major",
     "http": "http-server test-dist"
   },
   "author": "",
