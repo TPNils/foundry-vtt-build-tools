@@ -320,13 +320,15 @@ export async function publish(newVersion: Version): Promise<void> {
   await Git.validateCleanRepo();
 
   const srcPath = preBuildValidation().rootDir;
-  const manifest = FoundryVTT.readManifest(srcPath);
-  manifest.manifest.version = Version.toString(newVersion);
-  await Git.setGithubLinks(manifest.manifest, false);
-  await FoundryVTT.writeManifest(manifest, manifestWriteOptions);
+  const manifest = FoundryVTT.readManifest(srcPath, {nullable: true});
+  if (manifest) {
+    manifest.manifest.version = Version.toString(newVersion);
+    await Git.setGithubLinks(manifest.manifest, false);
+    await FoundryVTT.writeManifest(manifest, manifestWriteOptions);
+  }
 
   const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-  packageJson.version = manifest.manifest.version;
+  packageJson.version = Version.toString(newVersion);
   fs.writeFileSync('package.json', JSON.stringify(packageJson, null, 2), 'utf8');
 
   await Git.commitNewVersion(newVersion);
