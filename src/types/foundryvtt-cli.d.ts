@@ -15,12 +15,6 @@ declare module '@foundryvtt/foundryvtt-cli' {
   export interface CompileOptions extends PackageOptions {
     /** Whether to recurse into child directories to locate source files, otherwise only source files located in the root directory will be used. */
     recursive?: true;
-    /** Whether the source files are in YAML format, otherwise JSON is assumed. */
-    yaml?: true;
-    /** Whether to log operation progress to the console. */
-    log?: true;
-    /** A function that is called on every entry to transform it. */
-    transformEntry?: EntryTransformer;
   }
   
   export type ExtractOptions = Omit<PackageOptions, 'nedb'> & {
