@@ -136,6 +136,7 @@ export function preBuildValidation() {
   return {tsConfig, outDir, rootDir};
 }
 
+// TODO build & watch should support nedb
 export async function build(outDir?: string): Promise<void> {
   // Pre-build validation
   const {tsConfig, outDir: tsOutDir, rootDir} = preBuildValidation();
@@ -214,7 +215,6 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
   // If it's a foundry server, copy the packs once (can't edit while the server is running)
   if (foundryRunConfig) {
     for (const pack of packsRelative) {
-      console.log('pack', path.join(outDir, pack))
       await compilePack(path.join(srcManifestDir, pack), path.join(outDir, pack));
     }
   }
@@ -267,12 +267,11 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
       for (const pack of packsRelative) {
         await extractPack(path.join(outDir, pack), path.join(srcManifestDir, pack), {clean: true});
       }
-      console.log('kill self', {code, signal})
       process.kill(process.pid, signal);
     });
     process.once('SIGINT', (signal: NodeJS.Signals) => {
       if (packsRelative.size > 0) {
-        console.warn('CTRL + C detected. Stopping foundry and copying pack.');
+        console.info('CTRL + C detected. Stopping foundry and copying pack.');
       }
       foundrySpawn.kill(signal);
     });
