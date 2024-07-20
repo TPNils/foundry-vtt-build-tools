@@ -7,7 +7,7 @@
   },
   "scripts": {
     "git-gen": "ts-node ./src/git-generator.ts",
-    "dev": "node --loader ts-node/esm./src/default-builder.ts watch",
+    "dev": "node --loader ts-node/esm ./src/default-builder.ts watch",
     "build": "node --loader ts-node/esm ./src/default-builder.ts build",
     "http": "http-server test-dist"
   },
