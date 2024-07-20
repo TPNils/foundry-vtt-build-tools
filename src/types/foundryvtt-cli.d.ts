@@ -29,7 +29,7 @@ declare module '@foundryvtt/foundryvtt-cli' {
      * The generated name will be resolved against the root path provided
      * to the operation, and the entry will be written to that resolved location.
      */
-    transformName: NameTransformer;
+    transformName?: NameTransformer;
   } & (
     {
       /** Whether to operate on a NeDB database, otherwise a LevelDB database is assumed. */
