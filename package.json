@@ -12,7 +12,8 @@
     "patch": "node --loader ts-node/esm ./src/default-builder.ts publish -u patch",
     "minor": "node --loader ts-node/esm ./src/default-builder.ts publish -u minor",
     "major": "node --loader ts-node/esm ./src/default-builder.ts publish -u major",
-    "http": "http-server test-dist"
+    "http": "http-server test-dist",
+    "prepare": "npm run build"
   },
   "author": "",
   "license": "MIT",
