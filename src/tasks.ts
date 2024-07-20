@@ -1,7 +1,7 @@
-import * as fs from 'fs';
-import * as fsPromises from 'fs/promises';
-import * as path from 'path';
-import * as sass from 'sass';
+import fs from 'fs';
+import fsPromises from 'fs/promises';
+import path from 'path';
+import sass from 'sass';
 
 import { compilePack, extractPack } from '@foundryvtt/foundryvtt-cli';
 import { ChildProcess } from 'child_process';
@@ -10,6 +10,7 @@ import { FoundryVTT } from './foundy-vtt.js';
 import { Version } from './version.js';
 import { TsCompiler } from './ts-compiler.js';
 import { TsConfig } from './ts-config.js';
+import GlobWatcher from 'glob-watcher';
 
 const manifestWriteOptions: FoundryVTT.Manifest.WriteOptions = {
   injectCss: true,
@@ -158,16 +159,13 @@ export async function build(outDir?: string): Promise<void> {
   TsCompiler.createTsProgram({rootDir, outDir}).emit();
   await Promise.all(TsConfig.getNonTsFiles(tsConfig).map(file => {
     if (packs.has(file)) {
-      console.log('excl', file);
       return;
     }
     for (const excl of packs) {
       if (file.startsWith(excl)) {
-        console.log('excl', file);
         return;
       }
     }
-    console.log('process', file);
     return processFile(file, outDir!, rootDir);
   }));
   for (const pack of packs) {
@@ -187,37 +185,103 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
   }
 
   // Pre-watch preparation
-  const manifest = FoundryVTT.readManifest(rootDir, {nullable: true});
+  const stoppables: Array<{stop: () => void}> = [];
+  const srcManifest = FoundryVTT.readManifest(rootDir, {nullable: true});
+  const srcManifestDir = srcManifest == null ? null : path.dirname(srcManifest.filePath);
   await fsPromises.mkdir(outDir, {recursive: true});
   await cleanDir(outDir);
+  const packsAbsolute = new Set<string>();
+  const packsRelative = new Set<string>();
+  if (srcManifest) {
+    const manifestDir = path.dirname(srcManifest.filePath);
+    for (const pack of srcManifest?.manifest?.packs ?? []) {
+      packsAbsolute.add(path.resolve(manifestDir, pack.path));
+      packsRelative.add(pack.path);
+    }
+  }
+  
+  // Find a matching foundry server
+  let foundryRunConfig: FoundryVTT.RunConfig;
+  if (srcManifest) {
+    for (const fConfig of FoundryVTT.getRunConfigs()) {
+      if (outDir!.includes(path.normalize(fConfig.dataPath))) {
+        foundryRunConfig = fConfig;
+        break;
+      }
+    }
+  }
+
+  // If it's a foundry server, copy the packs once (can't edit while the server is running)
+  if (foundryRunConfig) {
+    for (const pack of packsRelative) {
+      console.log('pack', path.join(outDir, pack))
+      await compilePack(path.join(srcManifestDir, pack), path.join(outDir, pack));
+    }
+  }
+  // TODO if it's not a foundry server, we can watch & compile packs
 
   // Exec watch
-  const fileCb = (file: string) => processFile(file, outDir!, rootDir).catch(console.error);
+  const fileCb = (file: string) => {
+    // If it's a foundry server, don't update packs while the server runs
+    if (foundryRunConfig) {
+      if (packsAbsolute.has(file)) {
+        return;
+      }
+      for (const excl of packsAbsolute) {
+        if (file.startsWith(excl)) {
+          return;
+        }
+      }
+    } else {
+      if (packsAbsolute.has(file)) {
+        const relativePack = path.relative(srcManifestDir, file);
+        return extractPack(path.join(outDir, relativePack), path.join(srcManifestDir, relativePack), {clean: true});
+      }
+      for (const packAbsolute of packsAbsolute) {
+        if (file.startsWith(packAbsolute)) {
+          const relativePack = path.relative(srcManifestDir, packAbsolute);
+          return extractPack(path.join(outDir, relativePack), path.join(srcManifestDir, relativePack), {clean: true});
+        }
+      }
+    }
+    return processFile(file, outDir!, rootDir).catch(console.error);
+  };
   const tsWatcher = TsCompiler.createTsWatch({rootDir, outDir});
+  stoppables.push({stop: () => tsWatcher.close()})
   const nonTsWatcher = TsConfig.watchNonTsFiles(tsConfig);
+  stoppables.push({stop: () => nonTsWatcher.removeAllListeners()})
   nonTsWatcher.addListener('add', fileCb);
   nonTsWatcher.addListener('change', fileCb);
   nonTsWatcher.addListener('unlink', fileCb);
-  if (manifest) {
+  if (srcManifest) {
     // Process manifest (again) now that all other files are present
-    nonTsWatcher.once('ready', () => processFile(manifest.filePath, outDir!, rootDir));
+    nonTsWatcher.once('ready', () => processFile(srcManifest.filePath, outDir!, rootDir));
   }
 
-  // Find a matching foundry server
+  // Start the foundry server
   let foundrySpawn: ChildProcess;
-  for (const fConfig of FoundryVTT.getRunConfigs()) {
-    if (outDir!.includes(path.normalize(fConfig.dataPath))) {
-      foundrySpawn = FoundryVTT.startServer(fConfig.runInstanceKey);
-      break;
-    }
+  if (foundryRunConfig) {
+    foundrySpawn = FoundryVTT.startServer(foundryRunConfig.runInstanceKey);
+    stoppables.push({stop: () => foundrySpawn.kill()});
+    foundrySpawn.addListener('exit', async (code, signal) => {
+      for (const pack of packsRelative) {
+        await extractPack(path.join(outDir, pack), path.join(srcManifestDir, pack), {clean: true});
+      }
+      console.log('kill self', {code, signal})
+      process.kill(process.pid, signal);
+    });
+    process.once('SIGINT', (signal: NodeJS.Signals) => {
+      if (packsRelative.size > 0) {
+        console.warn('CTRL + C detected. Stopping foundry and copying pack.');
+      }
+      foundrySpawn.kill(signal);
+    });
   }
 
   return {
     stop: () => {
-      tsWatcher.close();
-      nonTsWatcher.removeAllListeners();
-      if (foundrySpawn) {
-        foundrySpawn.kill();
+      for (const stoppable of stoppables) {
+        stoppable.stop();
       }
     }
   }
