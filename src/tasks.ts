@@ -228,7 +228,6 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
         return;
       }
       for (const excl of packPathsRelativeToTsconfig) {
-        console.debug({file, excl, result: file.startsWith(excl)})
         if (file.startsWith(excl)) {
           return;
         }
