@@ -264,16 +264,17 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
     foundrySpawn = FoundryVTT.startServer(foundryRunConfig.runInstanceKey);
     stoppables.push({stop: () => foundrySpawn.kill()});
     foundrySpawn.addListener('exit', async (code, signal) => {
+      const promises: Promise<void>[] = [];
       for (const pack of packsRelative) {
-        await extractPack(path.join(outDir, pack), path.join(srcManifestDir, pack), {clean: true});
+        promises.push(extractPack(path.join(outDir, pack), path.join(srcManifestDir, pack), {clean: true}));
       }
+      await Promise.all(promises);
       process.kill(process.pid, signal);
     });
     process.once('SIGINT', (signal: NodeJS.Signals) => {
-      if (packsRelative.size > 0) {
-        console.info('CTRL + C detected. Stopping foundry and copying pack.');
+      for (const stoppable of stoppables) {
+        stoppable.stop();
       }
-      foundrySpawn.kill(signal);
     });
   }
 
