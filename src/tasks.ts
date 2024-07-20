@@ -191,13 +191,13 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
   const srcManifestDir = srcManifest == null ? null : path.dirname(srcManifest.filePath);
   await fsPromises.mkdir(outDir, {recursive: true});
   await cleanDir(outDir);
-  const packsAbsolute = new Set<string>();
-  const packsRelative = new Set<string>();
+  const packPathsRelativeToTsconfig = new Set<string>();
+  const packManifestPaths = new Set<string>();
   if (srcManifest) {
     const manifestDir = path.dirname(srcManifest.filePath);
     for (const pack of srcManifest?.manifest?.packs ?? []) {
-      packsAbsolute.add(path.resolve(manifestDir, pack.path));
-      packsRelative.add(pack.path);
+      packPathsRelativeToTsconfig.add(path.relative(path.dirname(tsConfig.path), path.resolve(manifestDir, pack.path)));
+      packManifestPaths.add(pack.path);
     }
   }
   
@@ -214,7 +214,7 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
 
   // If it's a foundry server, copy the packs once (can't edit while the server is running)
   if (foundryRunConfig) {
-    for (const pack of packsRelative) {
+    for (const pack of packManifestPaths) {
       await compilePack(path.join(srcManifestDir, pack), path.join(outDir, pack));
     }
   }
@@ -224,20 +224,21 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
   const fileCb = (file: string) => {
     // If it's a foundry server, don't update packs while the server runs
     if (foundryRunConfig) {
-      if (packsAbsolute.has(file)) {
+      if (packPathsRelativeToTsconfig.has(file)) {
         return;
       }
-      for (const excl of packsAbsolute) {
+      for (const excl of packPathsRelativeToTsconfig) {
+        console.debug({file, excl, result: file.startsWith(excl)})
         if (file.startsWith(excl)) {
           return;
         }
       }
     } else {
-      if (packsAbsolute.has(file)) {
+      if (packPathsRelativeToTsconfig.has(file)) {
         const relativePack = path.relative(srcManifestDir, file);
         return extractPack(path.join(outDir, relativePack), path.join(srcManifestDir, relativePack), {clean: true});
       }
-      for (const packAbsolute of packsAbsolute) {
+      for (const packAbsolute of packPathsRelativeToTsconfig) {
         if (file.startsWith(packAbsolute)) {
           const relativePack = path.relative(srcManifestDir, packAbsolute);
           return extractPack(path.join(outDir, relativePack), path.join(srcManifestDir, relativePack), {clean: true});
@@ -265,7 +266,7 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
     stoppables.push({stop: () => foundrySpawn.kill()});
     foundrySpawn.addListener('exit', async (code, signal) => {
       const promises: Promise<void>[] = [];
-      for (const pack of packsRelative) {
+      for (const pack of packManifestPaths) {
         promises.push(extractPack(path.join(outDir, pack), path.join(srcManifestDir, pack), {clean: true}));
       }
       await Promise.all(promises);
