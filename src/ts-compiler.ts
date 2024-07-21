@@ -105,7 +105,7 @@ export class TsCompiler {
       this[jsMapSymbol][filePath] = writeArgs;
       return;
     }
-    if (!filePath.endsWith('')) {
+    if (!filePath.endsWith('.js')) {
       return originalWrite(filePath, fileContent, ...TsCompiler.#slice(writeArgs, 2));
     }
     const parsedFilePath = path.parse(filePath);
