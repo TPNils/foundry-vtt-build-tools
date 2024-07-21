@@ -3,6 +3,7 @@ import path from 'path';
 import ts from 'typescript';
 import { MinifyOptions, minify } from 'uglify-js';
 import { appendJsExtensionTransformer } from './ts-transformers/append-js-extension-transformer.js';
+import { foundryVttModuleImportTransformer } from './ts-transformers/foundry-vtt-module-import-reference.js';
 
 const jsMapSymbol = Symbol('jsMap');
 
@@ -75,6 +76,7 @@ export class TsCompiler {
       const transformers = args[4];
       transformers.before ??= [];
       transformers.before.push(appendJsExtensionTransformer(program));
+      transformers.before.push(foundryVttModuleImportTransformer(program));
       return emit(...args);
     }
 
