@@ -32,9 +32,11 @@ export class TsCompiler {
     const createProgram: ts.CreateProgram<ts.EmitAndSemanticDiagnosticsBuilderProgram> = (...args) => {
       const host = args?.[2];
       if (host) {
-        host.writeFile = TsCompiler.#tsWriteFile(args[1] ?? {}, host.writeFile)
+        host.writeFile = TsCompiler.#tsWriteFile(args[1] ?? {}, host.writeFile);
       }
-      return ts.createEmitAndSemanticDiagnosticsBuilderProgram(...args)
+      const builder = ts.createEmitAndSemanticDiagnosticsBuilderProgram(...args);
+      TsCompiler.#overrideEmit(builder, () => builder.getProgram());
+      return builder;
     }
 
     // Note that there is another overload for `createWatchCompilerHost` that takes
@@ -65,20 +67,7 @@ export class TsCompiler {
     const host: ts.CompilerHost = ts.createCompilerHost(commandLine.options);
     host.writeFile = TsCompiler.#tsWriteFile(commandLine.options, host.writeFile);
     const program = ts.createProgram(commandLine.fileNames, commandLine.options, host);
-
-    // Inject transformers
-    const emit = program.emit;
-    program.emit = function(...args: Parameters<ts.Program['emit']>) {
-      for (let i = args.length; i < 5; i++) {
-        args.push(undefined)
-      }
-      args[4] ??= {};
-      const transformers = args[4];
-      transformers.before ??= [];
-      transformers.before.push(appendJsExtensionTransformer(program));
-      transformers.before.push(foundryVttModuleImportTransformer(program));
-      return emit(...args);
-    }
+    TsCompiler.#overrideEmit(program, () => program);
 
     return program;
   }
@@ -88,6 +77,21 @@ export class TsCompiler {
     getCurrentDirectory: ts.sys.getCurrentDirectory,
     getNewLine: () => ts.sys.newLine
   };
+
+  static #overrideEmit(override: {emit: ts.Program['emit']}, program: () => ts.Program) {
+    const emit = override.emit;
+    override.emit = function(...args: Parameters<ts.Program['emit']>) {
+      for (let i = args.length; i < 5; i++) {
+        args.push(undefined)
+      }
+      args[4] ??= {};
+      const transformers = args[4];
+      transformers.before ??= [];
+      transformers.before.push(appendJsExtensionTransformer(program()));
+      transformers.before.push(foundryVttModuleImportTransformer(program()));
+      return emit(...args);
+    }
+  }
 
   static #reportDiagnostic(diagnostic: ts.Diagnostic) {
     console.error('Error', diagnostic.code, ':', ts.flattenDiagnosticMessageText(diagnostic.messageText, TsCompiler.#formatHost.getNewLine()));
