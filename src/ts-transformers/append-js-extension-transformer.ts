@@ -1,5 +1,6 @@
 import path from 'path';
 import ts from 'typescript';
+import { createFullTraverseTransformer } from './transformer.js';
 
 function mutateModuleSpecifierText(program: ts.Program, node: ts.Node): string | null {
   if (!ts.isImportDeclaration(node) && !ts.isExportDeclaration(node)) {
@@ -34,35 +35,28 @@ function mutateModuleSpecifierText(program: ts.Program, node: ts.Node): string |
   return `./${relativePath.replace(/\.ts$/, '.js')}`;
 }
 
-export function appendJsExtensionTransformer(program: ts.Program): ts.TransformerFactory<ts.SourceFile> {
-  return (context) => {
-    return (node) => {
-      function visitor(node: ts.Node) {
-        const mutate = mutateModuleSpecifierText(program, node);
-        if (mutate != null) {
-          if (ts.isImportDeclaration(node)) {
-            return ts.factory.updateImportDeclaration(
-              node,
-              node.modifiers,
-              node.importClause,
-              ts.factory.createStringLiteral(mutate),
-              node.assertClause,
-            );
-          } else if (ts.isExportDeclaration(node)) {
-            return ts.factory.updateExportDeclaration(
-              node,
-              node.modifiers,
-              node.isTypeOnly,
-              node.exportClause,
-              ts.factory.createStringLiteral(mutate),
-              node.assertClause,
-            );
-          }
-        }
-        return ts.visitEachChild(node, visitor, context);
-      }
-  
-      return ts.visitNode(node, visitor);
-    };
+export const appendJsExtensionTransformer = createFullTraverseTransformer(({program, node, next}) => {
+  const mutate = mutateModuleSpecifierText(program, node);
+  if (mutate == null) {
+    return next();
   }
-}
+
+  if (ts.isImportDeclaration(node)) {
+    return ts.factory.updateImportDeclaration(
+      node,
+      node.modifiers,
+      node.importClause,
+      ts.factory.createStringLiteral(mutate),
+      node.assertClause,
+    );
+  } else if (ts.isExportDeclaration(node)) {
+    return ts.factory.updateExportDeclaration(
+      node,
+      node.modifiers,
+      node.isTypeOnly,
+      node.exportClause,
+      ts.factory.createStringLiteral(mutate),
+      node.assertClause,
+    );
+  }
+})
