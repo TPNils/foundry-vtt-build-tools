@@ -8,16 +8,25 @@ function mutateModuleSpecifierText(program: ts.Program, node: ts.Node): string |
   if (node.moduleSpecifier === undefined || !ts.isStringLiteral(node.moduleSpecifier)) {
     return null;
   }
-  if (!node.moduleSpecifier.text.startsWith('./') && !node.moduleSpecifier.text.startsWith('../')) {
-    return null;
-  }
-  if (node.moduleSpecifier.text.endsWith('.d.ts')) {
-    return null;
-  }
+
   const importSymbol = program.getTypeChecker().getSymbolAtLocation(node.moduleSpecifier);
-  const sourceFile = importSymbol.declarations.find(d => ts.isSourceFile(d)) as ts.SourceFile | null;
+  const sourceFile = importSymbol.declarations?.find(d => ts.isSourceFile(d)) as ts.SourceFile | null;
   if (!sourceFile || sourceFile.isDeclarationFile) {
     return null;
+  }
+
+  // if a given symbol belongs to a standard library (Date)
+  // (undocumented in typescript itself)
+  // https://www.satellytes.com/blog/post/typescript-ast-type-checker/
+  if (program.isSourceFileDefaultLibrary(sourceFile)) {
+    return null;
+  }
+
+  // if a given symbol belongs tod an external library (whatever you use from node_modules)
+  // (undocumented in typescript itself)
+  // https://www.satellytes.com/blog/post/typescript-ast-type-checker/
+  if (program.isSourceFileFromExternalLibrary(sourceFile)) {
+    return null; // TODO inject
   }
   
   const relativePath = path.posix.relative(path.dirname(node.getSourceFile().fileName), sourceFile.fileName);
@@ -25,10 +34,9 @@ function mutateModuleSpecifierText(program: ts.Program, node: ts.Node): string |
   return `./${relativePath.replace(/\.ts$/, '.js')}`;
 }
 
-export function createImportTransformer(program: ts.Program): ts.TransformerFactory<ts.SourceFile> {
+export function appendJsExtensionTransformer(program: ts.Program): ts.TransformerFactory<ts.SourceFile> {
   return (context) => {
     return (node) => {
-      console.log(node.fileName)
       function visitor(node: ts.Node) {
         const mutate = mutateModuleSpecifierText(program, node);
         if (mutate != null) {

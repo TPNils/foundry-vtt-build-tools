@@ -2,7 +2,7 @@
 import path from 'path';
 import ts from 'typescript';
 import { MinifyOptions, minify } from 'uglify-js';
-import { createImportTransformer } from './ts-transformers/import-transformer.js';
+import { appendJsExtensionTransformer } from './ts-transformers/append-js-extension-transformer.js';
 
 const jsMapSymbol = Symbol('jsMap');
 
@@ -74,7 +74,7 @@ export class TsCompiler {
       args[4] ??= {};
       const transformers = args[4];
       transformers.before ??= [];
-      transformers.before.push(createImportTransformer(program));
+      transformers.before.push(appendJsExtensionTransformer(program));
       return emit(...args);
     }
 
