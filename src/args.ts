@@ -3,17 +3,27 @@ import chalk from 'chalk';
 
 export class Args {
 
-  static #getArg(short: string, long: string): string | null {
+  static #getArg(short: string, long: string, type: 'boolean'): boolean
+  static #getArg(short: string, long: string, type?: 'string'): string | null
+  static #getArg(short: string, long: string, type: 'string' | 'boolean' = 'string'): boolean | string | null {
     short = short.replace(/^-{0,1}/, '-');
     long = long.replace(/^-{0,2}/, '--');
     for (let i = 0; i < process.argv.length; i++) {
       const arg = process.argv[i];
       if (arg === short || arg === long) {
-        return process.argv[i+1]
+        return type === 'boolean' ? true : process.argv[i+1]
       } else if (arg.startsWith(short + '=')) {
-        return arg.substring(short.length);
+        const value = arg.substring(short.length);
+        if (type === 'boolean') {
+          return Boolean(value);
+        }
+        return value;
       } else if (arg.startsWith(long + '=')) {
-        return arg.substring(long.length);
+        const value = arg.substring(long.length);
+        if (type === 'boolean') {
+          return Boolean(value);
+        }
+        return value;
       }
     }
 
@@ -57,5 +67,9 @@ export class Args {
   
   public static getFoundryInstanceName(): string | undefined {
     return Args.#getArg('fi', 'foundryinstance');
+  }
+  
+  public static getUseAllFoundryInstances(): boolean {
+    return Args.#getArg('afi', 'allfoundryinstances', 'boolean');
   }
 }

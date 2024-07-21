@@ -14,7 +14,7 @@ function getFoundryOutDir(): string | null {
   const fi = Args.getFoundryInstanceName();
   if (fi) {
     return path.join(FoundryVTT.getRunConfig(fi).dataPath, 'Data', `${manifest.type}s`, manifest.manifest.id);
-  } else {
+  } else if (Args.getUseAllFoundryInstances()) {
     for (const fConfig of FoundryVTT.getRunConfigs()) {
       return path.join(fConfig.dataPath, 'Data', `${manifest.type}s`, manifest.manifest.id);
     }
