@@ -5,10 +5,27 @@ import { Args } from './args.js';
 import { FoundryVTT } from './foundy-vtt.js';
 import { Git } from './git.js';
 
+function getFoundryOutDir(): string | null {
+  const srcDir = preBuildValidation().rootDir;
+  const manifest = FoundryVTT.readManifest(srcDir, {nullable: true});
+  if (!manifest) {
+    return null;
+  }
+  const fi = Args.getFoundryInstanceName();
+  if (fi) {
+    return path.join(FoundryVTT.getRunConfig(fi).dataPath, 'Data', `${manifest.type}s`, manifest.manifest.id);
+  } else {
+    for (const fConfig of FoundryVTT.getRunConfigs()) {
+      return path.join(fConfig.dataPath, 'Data', `${manifest.type}s`, manifest.manifest.id);
+    }
+  }
+  return null;
+}
+
 async function start() {
   switch (process.argv[2]) {
     case 'build': {
-      build();
+      build(getFoundryOutDir());
       break;
     }
     // case 'buildZip': {
@@ -19,22 +36,7 @@ async function start() {
       break;
     }
     case 'watch': {
-      const srcDir = preBuildValidation().rootDir;
-      const manifest = FoundryVTT.readManifest(srcDir, {nullable: true});
-      if (!manifest) {
-        watch();
-        break;
-      }
-      const fi = Args.getFoundryInstanceName();
-      if (fi) {
-        const outDir = path.join(FoundryVTT.getRunConfig(fi).dataPath, 'Data', `${manifest.type}s`, manifest.manifest.id);
-        watch(outDir);
-      } else {
-        for (const fConfig of FoundryVTT.getRunConfigs()) {
-          const outDir = path.join(fConfig.dataPath, 'Data', `${manifest.type}s`, manifest.manifest.id);
-          watch(outDir);
-        }
-      }
+      watch(getFoundryOutDir());
       break;
     }
     case 'publish': {
