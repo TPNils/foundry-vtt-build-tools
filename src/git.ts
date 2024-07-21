@@ -127,7 +127,9 @@ export class Git {
   }
 
   public static async push(): Promise<void> {
-    cli.throwIfError(await cli.execPromise(`git push`));
+    const push = await cli.execPromise(`git push`);
+    console.log({push})
+    cli.throwIfError(push);
   }
 
 }
