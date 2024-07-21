@@ -2,6 +2,7 @@
 import path from 'path';
 import ts from 'typescript';
 import { MinifyOptions, minify } from 'uglify-js';
+import { createImportTransformer } from './ts-transformers/import-transformer.js';
 
 const jsMapSymbol = Symbol('jsMap');
 
@@ -63,6 +64,19 @@ export class TsCompiler {
     const host: ts.CompilerHost = ts.createCompilerHost(commandLine.options);
     host.writeFile = TsCompiler.#tsWriteFile(commandLine.options, host.writeFile);
     const program = ts.createProgram(commandLine.fileNames, commandLine.options, host);
+
+    // Inject transformers
+    const emit = program.emit;
+    program.emit = function(...args: Parameters<ts.Program['emit']>) {
+      for (let i = args.length; i < 5; i++) {
+        args.push(undefined)
+      }
+      args[4] ??= {};
+      const transformers = args[4];
+      transformers.before ??= [];
+      transformers.before.push(createImportTransformer(program));
+      return emit(...args);
+    }
 
     return program;
   }
