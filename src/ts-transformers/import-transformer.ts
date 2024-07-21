@@ -11,10 +11,18 @@ function mutateModuleSpecifierText(program: ts.Program, node: ts.Node): string |
   if (!node.moduleSpecifier.text.startsWith('./') && !node.moduleSpecifier.text.startsWith('../')) {
     return null;
   }
-  if (path.extname(node.moduleSpecifier.text) !== '') {
+  if (node.moduleSpecifier.text.endsWith('.d.ts')) {
     return null;
   }
-  return `${node.moduleSpecifier.text}.js`;
+  const importSymbol = program.getTypeChecker().getSymbolAtLocation(node.moduleSpecifier);
+  const sourceFile = importSymbol.declarations.find(d => ts.isSourceFile(d)) as ts.SourceFile | null;
+  if (!sourceFile || sourceFile.isDeclarationFile) {
+    return null;
+  }
+  
+  const relativePath = path.posix.relative(path.dirname(node.getSourceFile().fileName), sourceFile.fileName);
+
+  return `./${relativePath.replace(/\.ts$/, '.js')}`;
 }
 
 export function createImportTransformer(program: ts.Program): ts.TransformerFactory<ts.SourceFile> {
@@ -22,7 +30,6 @@ export function createImportTransformer(program: ts.Program): ts.TransformerFact
     return (node) => {
       console.log(node.fileName)
       function visitor(node: ts.Node) {
-
         const mutate = mutateModuleSpecifierText(program, node);
         if (mutate != null) {
           if (ts.isImportDeclaration(node)) {
