@@ -62,7 +62,7 @@ export class Cli {
       throw cmd.err;
     }
     if (cmd.stderr && !options.ignoreOut) {
-      throw new Error(cmd.stderr);
+      throw new Error(`${cmd.cmd} ${cmd.args.join(' ')} threw an error: ${cmd.stderr}`);
     }
   }
 
