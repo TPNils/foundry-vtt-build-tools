@@ -89,11 +89,22 @@ export class FoundryVTT {
         throw new Error(`Could not find a module.json or system.json in path ${fileOrDirPath}`)
       }
     }
-    return {
-      type: fileOrDirPath.endsWith('system.json') ? 'system' : 'module',
-      filePath: fileOrDirPath,
-      manifest: FoundryVTT.#toLatestVersion(JSON.parse(fs.readFileSync(fileOrDirPath, 'utf8'))),
-    };
+
+    try {
+      const data = JSON.parse(fs.readFileSync(fileOrDirPath, 'utf8'));
+
+      return {
+        type: fileOrDirPath.endsWith('system.json') ? 'system' : 'module',
+        filePath: fileOrDirPath,
+        manifest: FoundryVTT.#toLatestVersion(data),
+      };
+    } catch (e) {
+      if (!nullable) {
+        throw e
+      }
+    }
+    
+    return null;
   }
 
   public static async serializeManifest(manifest: FoundryVTT.Manifest, options: FoundryVTT.Manifest.WriteOptions = {}): Promise<string> {
