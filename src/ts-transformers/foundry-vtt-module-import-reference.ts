@@ -30,8 +30,7 @@ function mutateModuleSpecifierText(program: ts.Program, node: ts.ImportDeclarati
   
   let manifest: FoundryVTT.Manifest;
   let traversingDir = path.normalize(sourceFile.fileName);
-  const cwd = path.normalize(program.getCurrentDirectory());
-  while (traversingDir.startsWith(cwd)) {
+  while (!fs.existsSync(path.join(traversingDir, 'package.json'))) {
     manifest = FoundryVTT.readManifest(traversingDir, {nullable: true});
     if (manifest) {
       break;
