@@ -35,7 +35,7 @@ function mutateModuleSpecifierText(program: ts.Program, node: ts.Node): string |
   }
 
   const importSymbol = program.getTypeChecker().getSymbolAtLocation(node.moduleSpecifier);
-  const sourceFile = importSymbol.declarations?.find(d => ts.isSourceFile(d)) as ts.SourceFile | null;
+  const sourceFile = importSymbol?.declarations?.find(d => ts.isSourceFile(d)) as ts.SourceFile | null;
   if (!sourceFile || sourceFile.isDeclarationFile) {
     return null;
   }
