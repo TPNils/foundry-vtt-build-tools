@@ -2,6 +2,7 @@
 import path from 'path';
 import ts from 'typescript';
 import { MinifyOptions, minify } from 'uglify-js';
+import { Npm } from './npm.js';
 import { appendJsExtensionTransformer } from './ts-transformers/append-js-extension-transformer.js';
 import { foundryVttModuleImportTransformer } from './ts-transformers/foundry-vtt-module-import-reference.js';
 
@@ -9,7 +10,7 @@ const jsMapSymbol = Symbol('jsMap');
 
 export class TsCompiler {
 
-  public static createTsWatch(optionsToExtend: ts.CompilerOptions = {}): ts.WatchOfConfigFile<any> {
+  public static async createTsWatch(optionsToExtend: ts.CompilerOptions = {}): Promise<ts.WatchOfConfigFile<any>> {
     const configPath = ts.findConfigFile('./', ts.sys.fileExists, 'tsconfig.json');
     if (!configPath) {
       throw new Error("Could not find a valid 'tsconfig.json'.");
@@ -29,13 +30,14 @@ export class TsCompiler {
     // `createSemanticDiagnosticsBuilderProgram`, the only difference is emit.
     // For pure type-checking scenarios, or when another tool/process handles emit,
     // using `createSemanticDiagnosticsBuilderProgram` may be more desirable.
+    const bundles = await Npm.getBundledDependencyLocations();
     const createProgram: ts.CreateProgram<ts.EmitAndSemanticDiagnosticsBuilderProgram> = (...args) => {
       const host = args?.[2];
       if (host) {
         host.writeFile = TsCompiler.#tsWriteFile(args[1] ?? {}, host.writeFile);
       }
       const builder = ts.createEmitAndSemanticDiagnosticsBuilderProgram(...args);
-      TsCompiler.#overrideEmit(builder, () => builder.getProgram());
+      TsCompiler.#overrideEmit(builder, () => builder.getProgram(), bundles);
       return builder;
     }
 
@@ -55,7 +57,7 @@ export class TsCompiler {
     return ts.createWatchProgram(host);
   }
 
-  public static createTsProgram(optionsToExtend: ts.CompilerOptions = {}): ts.Program {
+  public static async createTsProgram(optionsToExtend: ts.CompilerOptions = {}): Promise<ts.Program> {
     const configPath = ts.findConfigFile('./', ts.sys.fileExists, 'tsconfig.json');
     if (!configPath) {
       throw new Error("Could not find a valid 'tsconfig.json'.");
@@ -67,7 +69,7 @@ export class TsCompiler {
     const host: ts.CompilerHost = ts.createCompilerHost(commandLine.options);
     host.writeFile = TsCompiler.#tsWriteFile(commandLine.options, host.writeFile);
     const program = ts.createProgram(commandLine.fileNames, commandLine.options, host);
-    TsCompiler.#overrideEmit(program, () => program);
+    TsCompiler.#overrideEmit(program, () => program, await Npm.getBundledDependencyLocations());
 
     return program;
   }
@@ -78,7 +80,7 @@ export class TsCompiler {
     getNewLine: () => ts.sys.newLine
   };
 
-  static #overrideEmit(override: {emit: ts.Program['emit']}, program: () => ts.Program) {
+  static #overrideEmit(override: {emit: ts.Program['emit']}, program: () => ts.Program, inclModules: Npm.PackageQuery[] = []) {
     const emit = override.emit;
     override.emit = function(...args: Parameters<ts.Program['emit']>) {
       for (let i = args.length; i < 5; i++) {
@@ -88,7 +90,7 @@ export class TsCompiler {
       const transformers = args[4];
       transformers.before ??= [];
       transformers.before.push(appendJsExtensionTransformer(program()));
-      transformers.before.push(foundryVttModuleImportTransformer(program()));
+      transformers.before.push(foundryVttModuleImportTransformer(program(), inclModules));
       return emit(...args);
     }
   }

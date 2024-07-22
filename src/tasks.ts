@@ -5,12 +5,13 @@ import sass from 'sass';
 
 import { compilePack, extractPack } from '@foundryvtt/foundryvtt-cli';
 import { ChildProcess } from 'child_process';
+import { glob } from 'glob';
 import { Git } from './git.js';
 import { FoundryVTT } from './foundy-vtt.js';
 import { Version } from './version.js';
 import { TsCompiler } from './ts-compiler.js';
 import { TsConfig } from './ts-config.js';
-import GlobWatcher from 'glob-watcher';
+import { Npm } from './npm.js';
 
 const manifestWriteOptions: FoundryVTT.Manifest.WriteOptions = {
   injectCss: true,
@@ -18,7 +19,7 @@ const manifestWriteOptions: FoundryVTT.Manifest.WriteOptions = {
   injectOlderVersionProperties: true,
 }
 
-function findMostCommonDir(files: Iterable<string>): string {
+export function findMostCommonDir(files: Iterable<string>): string {
   const dirs = new Set<string>();
   for (const file of files) {
     dirs.add(path.dirname(file));
@@ -117,6 +118,27 @@ function targetOutputFile(inputPath: string, outDir: string, rootDir: string): s
   return path.join(outDir, path.relative(rootDir, inputPath));
 }
 
+async function copyBundledDependencyLocations(outDir: string): Promise<void> {
+  const sources = await Npm.getBundledDependencyLocations();
+  const promises: Promise<void>[] = [];
+
+  for (const src of sources) {
+    promises.push(glob(path.posix.join(src.location, '**/*'), {nodir: true}).then(async files => {
+      const filePromises: Promise<void>[] = [];
+
+      for (const file of files) {
+        const outFile = path.join(outDir, file);
+        await fsPromises.mkdir(path.dirname(outFile), {recursive: true});
+        filePromises.push(fsPromises.copyFile(file, outFile));
+      }
+
+      await Promise.all(filePromises);
+    }))
+  }
+
+  await Promise.all(promises);
+}
+
 export function preBuildValidation() {
   // Pre-build validation
   const tsConfig = TsConfig.getTsConfig();
@@ -157,7 +179,8 @@ export async function build(outDir?: string): Promise<void> {
   }
 
   // Exec build
-  TsCompiler.createTsProgram({rootDir, outDir}).emit();
+  await copyBundledDependencyLocations(outDir);
+  (await TsCompiler.createTsProgram({rootDir, outDir})).emit();
   await Promise.all(TsConfig.getNonTsFiles(tsConfig).map(file => {
     if (packs.has(file)) {
       return;
@@ -220,6 +243,9 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
   }
   // TODO if it's not a foundry server, we can watch & compile packs
 
+  // One-time build actions
+  await copyBundledDependencyLocations(outDir);
+
   // Exec watch
   const fileCb = (file: string) => {
     // If it's a foundry server, don't update packs while the server runs
@@ -246,7 +272,7 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
     }
     return processFile(file, outDir!, rootDir).catch(console.error);
   };
-  const tsWatcher = TsCompiler.createTsWatch({rootDir, outDir});
+  const tsWatcher = await TsCompiler.createTsWatch({rootDir, outDir});
   stoppables.push({stop: () => tsWatcher.close()})
   const nonTsWatcher = TsConfig.watchNonTsFiles(tsConfig);
   stoppables.push({stop: () => nonTsWatcher.removeAllListeners()})
