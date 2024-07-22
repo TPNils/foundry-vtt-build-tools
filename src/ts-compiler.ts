@@ -177,7 +177,10 @@ export class TsCompiler {
     }
 
     const out = minify(fileContent, minifyOptions);
-
+    if (out.error) {
+      console.error({filePath, fileContent})
+      throw out.error;
+    }
     originalWrite(
       filePath,
       out.code,

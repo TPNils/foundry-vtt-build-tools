@@ -5,13 +5,17 @@ const virtualSymbolFlags = ts.SymbolFlags.Interface |  ts.SymbolFlags.Signature 
   ts.SymbolFlags.TypeAlias | ts.SymbolFlags.TypeLiteral | ts.SymbolFlags.TypeParameter;
 
 export const removeTypeOnlyImportsTransformer = createFullTraverseTransformer(({program, node, next}) => {
-  if (!ts.isNamedImports(node)) {
+  if (!ts.isImportDeclaration(node)) {
+    return next();
+  }
+  
+  if (!node.importClause?.namedBindings || !ts.isNamedImports(node.importClause.namedBindings)) {
     return next();
   }
   
   const typeChecker = program.getTypeChecker();
   const nonTypeElements: ts.ImportSpecifier[] = [];
-  for (const namedImport of node.elements) {
+  for (const namedImport of node.importClause.namedBindings.elements) {
     const namedImportSymbol = typeChecker.getAliasedSymbol(typeChecker.getSymbolAtLocation(namedImport.name));
     console.log(namedImport.getText(), namedImportSymbol.flags)
     if (!(namedImportSymbol.flags & virtualSymbolFlags)) {
@@ -19,15 +23,26 @@ export const removeTypeOnlyImportsTransformer = createFullTraverseTransformer(({
     }
   }
 
-  if (nonTypeElements.length === node.elements.length) {
+  if (nonTypeElements.length === node.importClause.namedBindings.elements.length) {
     return next();
   }
   if (nonTypeElements.length === 0) {
     return undefined;
   }
 
-  return ts.factory.updateNamedImports(
+  return ts.factory.updateImportDeclaration(
     node,
-    nonTypeElements,
+    node.modifiers,
+    ts.factory.updateImportClause(
+      node.importClause,
+      node.importClause.isTypeOnly,
+      node.importClause.name,
+      ts.factory.updateNamedImports(
+        node.importClause.namedBindings,
+        nonTypeElements,
+      )
+    ),
+    node.moduleSpecifier,
+    node.assertClause,
   );
 })
