@@ -2,27 +2,6 @@ import path from 'path';
 import ts from 'typescript';
 import { createFullTraverseTransformer } from './transformer.js';
 
-const virtualSymbolFlags = ts.SymbolFlags.Interface |  ts.SymbolFlags.Signature |
-  ts.SymbolFlags.TypeAlias | ts.SymbolFlags.TypeLiteral | ts.SymbolFlags.TypeParameter;
-
-function mutateNamedImports(program: ts.Program, node: ts.ImportDeclaration): ts.ImportSpecifier[] | null {
-  const typeChecker = program.getTypeChecker();
-  if (node.importClause?.namedBindings && ts.isNamedImports(node.importClause.namedBindings)) {
-    const nonTypeElements: ts.ImportSpecifier[] = [];
-    for (const namedImport of node.importClause.namedBindings.elements) {
-      const namedImportSymbol = typeChecker.getAliasedSymbol(typeChecker.getSymbolAtLocation(namedImport.name));
-      if (!(namedImportSymbol.flags & virtualSymbolFlags)) {
-        nonTypeElements.push(namedImport);
-      }
-    }
-    if (nonTypeElements.length < node.importClause.namedBindings.elements.length) {
-      return nonTypeElements
-    }
-  }
-
-  return null;
-}
-
 function mutateModuleSpecifierText(program: ts.Program, node: ts.Node): string | null {
   if (!ts.isImportDeclaration(node) && !ts.isExportDeclaration(node)) {
     return null;
@@ -34,7 +13,8 @@ function mutateModuleSpecifierText(program: ts.Program, node: ts.Node): string |
     return null;
   }
 
-  const importSymbol = program.getTypeChecker().getSymbolAtLocation(node.moduleSpecifier);
+  const originNode = ts.getParseTreeNode(node) as ts.ImportDeclaration ?? node;
+  const importSymbol = program.getTypeChecker().getSymbolAtLocation((ts.isImportDeclaration(originNode) ? originNode : node).moduleSpecifier);
   const sourceFile = importSymbol?.declarations?.find(d => ts.isSourceFile(d)) as ts.SourceFile | null;
   if (!sourceFile || sourceFile.isDeclarationFile) {
     return null;
@@ -66,22 +46,10 @@ export const appendJsExtensionTransformer = createFullTraverseTransformer(({prog
   }
 
   if (ts.isImportDeclaration(node)) {
-    const namedImports = mutateNamedImports(program, node);
-    if (namedImports?.length === 0) {
-      return undefined;
-    }
     return ts.factory.updateImportDeclaration(
       node,
       node.modifiers,
-      namedImports == null ? node.importClause : ts.factory.updateImportClause(
-        node.importClause,
-        node.importClause.isTypeOnly,
-        node.importClause.name,
-        ts.factory.updateNamedImports(
-          node.importClause.namedBindings as ts.NamedImports,
-          namedImports
-        )
-      ),
+      node.importClause,
       ts.factory.createStringLiteral(mutate),
       node.assertClause,
     );

@@ -5,6 +5,7 @@ import { MinifyOptions, minify } from 'uglify-js';
 import { Npm } from './npm.js';
 import { appendJsExtensionTransformer } from './ts-transformers/append-js-extension-transformer.js';
 import { foundryVttModuleImportTransformer } from './ts-transformers/foundry-vtt-module-import-reference.js';
+import { removeTypeOnlyImportsTransformer } from './ts-transformers/remove-type-only-imports.js';
 
 const jsMapSymbol = Symbol('jsMap');
 
@@ -91,6 +92,7 @@ export class TsCompiler {
       transformers.before ??= [];
       transformers.before.push(appendJsExtensionTransformer(program()));
       transformers.before.push(foundryVttModuleImportTransformer(program(), inclModules));
+      transformers.before.push(removeTypeOnlyImportsTransformer(program()));
       return emit(...args);
     }
   }

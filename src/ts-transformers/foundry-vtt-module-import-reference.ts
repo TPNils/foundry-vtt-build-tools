@@ -16,16 +16,6 @@ function mutateModuleSpecifierText(program: ts.Program, node: ts.ImportDeclarati
   const importSymbol = program.getTypeChecker().getSymbolAtLocation((ts.isImportDeclaration(originNode) ? originNode : node).moduleSpecifier);
   const importFromSourceFile = importSymbol?.declarations?.find(d => ts.isSourceFile(d)) as ts.SourceFile | null;
   if (!importFromSourceFile) {
-  //   try {
-  //     console.log('no source', node.getText())
-  //   } catch {
-  //     let sourceNode: ts.Node = node;
-  //     while (sourceNode && !ts.isSourceFile(sourceNode)) {
-  //       sourceNode = sourceNode.parent;
-  //       console.log('')
-  //     }
-  //     console.log('no source', originNode.getText())
-  //   }
     // Could be an import of d.ts files or isSourceFileDefaultLibrary
     return null;
   }
