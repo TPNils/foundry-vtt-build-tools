@@ -68,7 +68,7 @@ export class TsCompiler {
     TsCompiler.#throwDiagnostic(commandLine.errors);
 
     const host: ts.CompilerHost = ts.createCompilerHost(commandLine.options);
-    host.writeFile = TsCompiler.#tsWriteFile(commandLine.options, host.writeFile);
+    host.writeFile = TsCompiler.#tsWriteFile(commandLine.options, ts.sys.writeFile);
     const program = ts.createProgram(commandLine.fileNames, commandLine.options, host);
     TsCompiler.#overrideEmit(program, () => program, await Npm.getBundledDependencyLocations());
 
