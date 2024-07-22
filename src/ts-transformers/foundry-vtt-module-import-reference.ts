@@ -59,7 +59,6 @@ function mutateModuleSpecifierText(program: ts.Program, node: ts.ImportDeclarati
         path.dirname(sourceFile),
         path.join(srcDir, bundle.location, importFileRelative),
       ).replace(/(?:\.d)?\.ts$/, '.js').split(path.sep).join(path.posix.sep);
-      console.log('relative', relative)
       return relative;
     }
   }
@@ -76,7 +75,6 @@ function mutateModuleSpecifierText(program: ts.Program, node: ts.ImportDeclarati
   }
 
   if (manifest) {
-    console.log('manifest', manifest.filePath)
     const manifestDir = path.resolve(path.dirname(manifest.filePath));
   
     return `/` + path.posix.join(
@@ -86,7 +84,6 @@ function mutateModuleSpecifierText(program: ts.Program, node: ts.ImportDeclarati
     );
   }
 
-  console.log('no manifest or bundle', importFromSourceFile.fileName)
   return null;
 }
 
