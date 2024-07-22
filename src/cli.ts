@@ -1,5 +1,5 @@
 
-import { ExecException, spawn } from 'child_process';
+import { ExecException, spawn, SpawnOptions } from 'child_process';
 import { Writable } from 'stream';
 
 export interface ExecResponse {
@@ -12,7 +12,7 @@ export interface ExecResponse {
 
 export class Cli {
 
-  public execPromise(command: string, ...args: string[]): Promise<ExecResponse> {
+  public static execPromise(command: string, args: string[] = [], options: Omit<SpawnOptions, 'shell'> = {}): Promise<ExecResponse> {
     const externalStack = new Error().stack!.replace(/^.*\n/, '');
     return new Promise<ExecResponse>(async (resolve, reject) => {
       const response: ExecResponse = {
@@ -21,7 +21,7 @@ export class Cli {
         stdout: '',
         stderr: '',
       };
-      const child = spawn(command, args, {shell: true});
+      const child = spawn(command, args, {...options, shell: true});
       child.stdout.pipe(new Writable({write: (chunk, encoding, callback) => {
         if (chunk instanceof Buffer) {
           response.stdout += chunk.toString();
@@ -57,7 +57,7 @@ export class Cli {
     })
   }
 
-  public throwIfError(cmd: ExecResponse, options: {ignoreOut?: boolean} = {}): void {
+  public static throwIfError(cmd: ExecResponse, options: {ignoreOut?: boolean} = {}): void {
     if (cmd.err) {
       throw cmd.err;
     }
@@ -66,11 +66,4 @@ export class Cli {
     }
   }
 
-}
-
-export const cli = new Cli();
-for (let prop in cli) {
-  if (typeof cli[prop] === 'function') {
-    cli[prop] = cli[prop].bind(cli);
-  }
 }

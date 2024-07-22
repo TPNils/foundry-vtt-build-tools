@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { context as githubContext } from '@actions/github';
-import { cli } from './cli.js';
+import { Cli } from './cli.js';
 import { Version } from './version.js';
 import { FoundryVTT } from './foundy-vtt.js';
 
@@ -38,7 +38,7 @@ export class Git {
     if (githubRepository == null) {
       let remoteName: string | null = null;
       {
-        const out = await cli.execPromise('git remote');
+        const out = await Cli.execPromise('git remote');
         if (out.stdout) {
           const lines = out.stdout.split('\n');
           if (lines.length === 1) {
@@ -48,7 +48,7 @@ export class Git {
       }
       if (remoteName == null) {
         // Find the correct remote
-        const out = await cli.execPromise('git branch -vv --no-color');
+        const out = await Cli.execPromise('git branch -vv --no-color');
         if (out.stdout) {
           const rgx = /^\* [^\s]+ +[0-9a-fA-F]+ \[([^\/]+)\//;
           for (const line of out.stdout.split('\n')) {
@@ -61,8 +61,8 @@ export class Git {
       }
 
       if (remoteName != null) {
-        const remoteUrl = await cli.execPromise(`git remote get-url --push "${remoteName.replace(/"/g, '\\"')}"`);
-        cli.throwIfError(remoteUrl);
+        const remoteUrl = await Cli.execPromise(`git`, [`remote`, `get-url`, `--push`, remoteName.replace(/"/g, '\\"')]);
+        Cli.throwIfError(remoteUrl);
         const sshRgx = /^git@github\.com:(.*)\.git$/i.exec(remoteUrl?.stdout?.trim() ?? '');
         if (sshRgx) {
           githubRepository = sshRgx[1];
@@ -79,38 +79,38 @@ export class Git {
   }
 
   public static async validateCleanRepo(): Promise<void> {
-    const cmd = await cli.execPromise('git status --porcelain');
-    cli.throwIfError(cmd);
+    const cmd = await Cli.execPromise('git', ['status', '--porcelain']);
+    Cli.throwIfError(cmd);
     if (typeof cmd.stdout === 'string' && cmd.stdout.length > 0) {
       throw new Error("You must first commit your pending changes");
     }
   }
 
   public static async commitNewVersion(version: Version): Promise<void> {
-    cli.throwIfError(await cli.execPromise('git add .'), {ignoreOut: true});
-    cli.throwIfError(await cli.execPromise(`git commit -m "Updated to ${Version.toString(version)}`));
+    Cli.throwIfError(await Cli.execPromise('git', ['add', '.']), {ignoreOut: true});
+    Cli.throwIfError(await Cli.execPromise(`git`, [`commit`, `-m`, `Updated to ${Version.toString(version)}`]));
   }
 
   public static async deleteVersionTag(version: Version): Promise<void> {
     // Ignore errors
-    await cli.execPromise(`git tag -d ${Version.toString(version)}`);
-    await cli.execPromise(`git push --delete origin ${Version.toString(version)}`);
+    await Cli.execPromise(`git tag -d ${Version.toString(version)}`);
+    await Cli.execPromise(`git push --delete origin ${Version.toString(version)}`);
   }
 
   public static async getCurrentLongHash(): Promise<string | null> {
-    const hash = await cli.execPromise(`git rev-parse HEAD`);
-    cli.throwIfError(hash);
+    const hash = await Cli.execPromise(`git rev-parse HEAD`);
+    Cli.throwIfError(hash);
     return hash.stdout?.split('\n')?.[0] ?? null;
   }
 
   public static async tagCurrentVersion(version: Version): Promise<void> {
     let versionStr = Version.toString(version);
-    cli.throwIfError(await cli.execPromise(`git tag -a ${versionStr} -m "Updated to ${versionStr}"`));
-    cli.throwIfError(await cli.execPromise(`git push origin ${versionStr}`), {ignoreOut: true});
+    Cli.throwIfError(await Cli.execPromise(`git`, [`tag`, `-a`, versionStr, `-m`, `Updated to ${versionStr}`]));
+    Cli.throwIfError(await Cli.execPromise(`git`, [`push`, `origin`, versionStr]), {ignoreOut: true});
   }
 
   public static async getLatestVersionTag(): Promise<Version> {
-    const tagHash = await cli.execPromise('git show-ref --tags');
+    const tagHash = await Cli.execPromise('git show-ref --tags');
     const rgx = /refs\/tags\/(.*)/g;
     let match: RegExpExecArray | null;
     const versions: Version[] = [];
@@ -127,7 +127,7 @@ export class Git {
   }
 
   public static async push(): Promise<void> {
-    cli.throwIfError(await cli.execPromise(`git push`), {ignoreOut: true});
+    Cli.throwIfError(await Cli.execPromise(`git push`), {ignoreOut: true});
   }
 
 }

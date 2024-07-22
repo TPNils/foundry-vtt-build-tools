@@ -1,5 +1,5 @@
 import { createWriteStream } from 'fs';
-import { cli } from './cli.js';
+import { Cli } from './cli.js';
 
 class Generator {
 
@@ -7,8 +7,8 @@ class Generator {
     const writeStream = createWriteStream('gitCmdUsageToInterface.ts');
     try {
       for (const cmd of commands) {
-        const out = await cli.execPromise('git', cmd, '-h');
-        const outString = out.stderr || out.stdout;
+        const out = await Cli.execPromise('git', [cmd, '-h']);
+        const outString = out.stderr || out.stdout || '';
         const paramsToProps = new Map<string, string>();
         const usageRgx = /(?:^error.+\n)?^(usage(?:.|\n)*?)\n$/gm;
         const usage = usageRgx.exec(outString)?.[1] ?? `Usage not found: ${outString}`;
@@ -33,7 +33,7 @@ class Generator {
                 set.add(valueName.includes('=') ? 'object' : 'string');
               }
               if (valueType) {
-                let match: RegExpMatchArray;
+                let match: RegExpMatchArray | null;
                 if (match = valueType.match(/^<.*>$/)) {
                   set.add('string');
                 } else if (match = valueType.match(/^\((.*)\)$/)) {
@@ -259,8 +259,8 @@ export namespace Git {
 export class Git {
 
   public static async add(dir: string = '.', options?: Git.add.Options): Promise<Git.add.Return> {
-    const out = await cli.execPromise('git', 'add', dir, ...Git.#optionsToCommandParts(options as any));
-    cli.throwIfError(out);
+    const out = await Cli.execPromise('git', ['add', dir, ...Git.#optionsToCommandParts(options as any)]);
+    Cli.throwIfError(out);
   }
 
   public static async clone(repo: string): Promise<Git.clone.Return>
@@ -269,8 +269,8 @@ export class Git {
   public static async clone(repo: string, outDir: string, options: Git.clone.Options): Promise<Git.clone.Return>
   public static async clone(...args: [string, (string | Git.clone.Options)?, (string | Git.clone.Options)?]): Promise<Git.clone.Return> {
     const repo = args[0];
-    let options: Git.clone.Options;
-    let outDir: string;
+    let options: Git.clone.Options | undefined;
+    let outDir: string | undefined;
     for (let i = 1; i < args.length; i++) {
       const value = args[i];
       if (typeof value === 'string') {
@@ -279,8 +279,8 @@ export class Git {
         options ??= value;
       }
     }
-    const out = await cli.execPromise('git', 'clone', ...Git.#optionsToCommandParts(options as any), repo, ...(outDir ? [outDir] : []))
-    cli.throwIfError(out);
+    const out = await Cli.execPromise('git', ['clone', ...Git.#optionsToCommandParts(options as any), repo, ...(outDir ? [outDir] : [])])
+    Cli.throwIfError(out);
   }
 
   public static async init(): Promise<Git.clone.Return>
@@ -289,8 +289,8 @@ export class Git {
   public static async init(outDir: string, options: Git.clone.Options): Promise<Git.clone.Return>
   public static async init(...args: [(string | Git.clone.Options)?, (string | Git.clone.Options)?]): Promise<Git.clone.Return> {
     const repo = args[0];
-    let options: Git.clone.Options;
-    let outDir: string;
+    let options: Git.clone.Options | undefined;
+    let outDir: string | undefined;
     for (let i = 0; i < args.length; i++) {
       const value = args[i];
       if (typeof value === 'string') {
@@ -299,8 +299,8 @@ export class Git {
         options ??= value;
       }
     }
-    const out = await cli.execPromise('git', 'init', ...Git.#optionsToCommandParts(options as any), ...(outDir ? [outDir] : []))
-    cli.throwIfError(out);
+    const out = await Cli.execPromise('git', ['init', ...Git.#optionsToCommandParts(options as any), ...(outDir ? [outDir] : [])])
+    Cli.throwIfError(out);
   }
 
   static #optionsToCommandParts(options?: NodeJS.Dict<boolean | string | {[key: string]: string}>): string[] {
