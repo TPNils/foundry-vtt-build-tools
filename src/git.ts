@@ -88,7 +88,7 @@ export class Git {
 
   public static async commitNewVersion(version: Version): Promise<void> {
     Cli.throwIfError(await Cli.execPromise('git', ['add', '.']), {ignoreOut: true});
-    Cli.throwIfError(await Cli.execPromise(`git`, [`commit`, `-m`, `Updated to ${Version.toString(version)}`]));
+    Cli.throwIfError(await Cli.execPromise(`git`, [`commit`, `-m`, `"Updated to ${Version.toString(version)}"`]));
   }
 
   public static async deleteVersionTag(version: Version): Promise<void> {
@@ -105,7 +105,7 @@ export class Git {
 
   public static async tagCurrentVersion(version: Version): Promise<void> {
     let versionStr = Version.toString(version);
-    Cli.throwIfError(await Cli.execPromise(`git`, [`tag`, `-a`, versionStr, `-m`, `Updated to ${versionStr}`]));
+    Cli.throwIfError(await Cli.execPromise(`git`, [`tag`, `-a`, versionStr, `-m`, `"Updated to ${versionStr}"`]));
     Cli.throwIfError(await Cli.execPromise(`git`, [`push`, `origin`, versionStr]), {ignoreOut: true});
   }
 
