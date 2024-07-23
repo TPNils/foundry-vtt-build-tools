@@ -1,6 +1,6 @@
 {
   "name": "foundry-vtt-build-tools",
-  "version": "v0.1.6",
+  "version": "v0.1.7",
   "type": "module",
   "bin": {
     "foundry-vtt-build-tools": "dist/default-builder.js"
