@@ -123,11 +123,13 @@ async function copyBundledDependencyLocations(outDir: string): Promise<void> {
   const promises: Promise<void>[] = [];
 
   for (const src of sources) {
-    promises.push(glob(path.posix.join(src.location, '**/*'), {nodir: true}).then(async files => {
+    const srcOutDir = path.join(outDir, 'node_modules', src.name);
+    promises.push(glob(path.posix.join(src.location, '**/*'), {nodir: true, follow: true}).then(async files => {
       const filePromises: Promise<void>[] = [];
 
+      const srcLocation = src.location.split(path.posix.sep).join(path.sep);
       for (const file of files) {
-        const outFile = path.join(outDir, file);
+        const outFile = path.join(srcOutDir, file.substring(srcLocation.length));
         await fsPromises.mkdir(path.dirname(outFile), {recursive: true});
         filePromises.push(fsPromises.copyFile(file, outFile));
       }
