@@ -47,7 +47,7 @@ function mutateModuleSpecifierText(program: ts.Program, node: ts.ImportDeclarati
       );
       const relative = path.relative(
         path.dirname(sourceFile),
-        path.join(srcDir, bundle.location, importFileRelative),
+        path.join(srcDir, 'node_modules', bundle.name, importFileRelative),
       ).replace(/(?:\.d)?\.ts$/, '.js').split(path.sep).join(path.posix.sep);
       return relative;
     }
