@@ -161,6 +161,7 @@ export function preBuildValidation() {
 }
 
 // TODO build & watch should support nedb
+// TODO copy bundled foundry manifest fields to the main one (scripts, autors, dependancies, etc...)
 export async function build(outDir?: string): Promise<void> {
   // Pre-build validation
   const {tsConfig, outDir: tsOutDir, rootDir} = preBuildValidation();
