@@ -196,9 +196,9 @@ export async function build(outDir?: string): Promise<void> {
     return processFile(file, outDir!, rootDir);
   }));
   for (const pack of packs) {
-    if (fs.existsSync(pack)) {
+    try {
       compilePack(pack, targetOutputFile(pack, outDir, path.dirname(manifest.filePath)));
-    }
+    } catch {}
   }
   if (manifest) {
     // Process again now that all other files are present
@@ -243,9 +243,9 @@ export async function watch(outDir?: string): Promise<{stop: () => void}> {
   // If it's a foundry server, copy the packs once (can't edit while the server is running)
   if (foundryRunConfig) {
     for (const pack of packManifestPaths) {
-      if (fs.existsSync(pack)) {
+      try {
         await compilePack(path.join(srcManifestDir, pack), path.join(outDir, pack));
-      }
+      } catch {}
     }
   }
   // TODO if it's not a foundry server, we can watch & compile packs
