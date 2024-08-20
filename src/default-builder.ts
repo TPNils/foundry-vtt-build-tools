@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import path from "path";
-import { build, compileReadme, preBuildValidation, watch, publish, rePublish, manifestForGithubCurrentVersion, manifestForGithubLatestVersion } from './tasks.js';
+import { build, buildZip, compileReadme, preBuildValidation, watch, publish, rePublish, manifestForGithubCurrentVersion, manifestForGithubLatestVersion } from './tasks.js';
 import { Args } from './args.js';
 import { FoundryVTT } from './foundy-vtt.js';
 import { Git } from './git.js';
@@ -28,9 +28,10 @@ async function start() {
       build(getFoundryOutDir());
       break;
     }
-    // case 'buildZip': {
-    //   break;
-    // }
+    case 'buildZip': {
+      buildZip();
+      break;
+    }
     case 'compileReadme': {
       compileReadme();
       break;

@@ -9,6 +9,7 @@
     "git-gen": "ts-node ./src/git-generator.ts",
     "dev": "node --loader ts-node/esm ./src/default-builder.ts watch",
     "build": "node --loader ts-node/esm ./src/default-builder.ts build",
+    "buildZip": "node --loader ts-node/esm ./src/default-builder.ts buildZip",
     "patch": "node --loader ts-node/esm ./src/default-builder.ts publish -u patch",
     "minor": "node --loader ts-node/esm ./src/default-builder.ts publish -u minor",
     "major": "node --loader ts-node/esm ./src/default-builder.ts publish -u major",
@@ -32,6 +33,7 @@
     "uglify-js": "^3.18.0"
   },
   "devDependencies": {
+    "@types/archiver": "^5.3.2",
     "@types/glob-watcher": "^5.0.5",
     "@types/node": "^20.14.11",
     "@types/showdown": "^2.0.6",

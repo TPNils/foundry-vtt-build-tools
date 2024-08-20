@@ -12,6 +12,7 @@ import { Version } from './version.js';
 import { TsCompiler } from './ts-compiler.js';
 import { TsConfig } from './ts-config.js';
 import { Npm } from './npm.js';
+import archiver from 'archiver';
 
 const manifestWriteOptions: FoundryVTT.Manifest.WriteOptions = {
   injectCss: true,
@@ -204,6 +205,19 @@ export async function build(outDir?: string): Promise<void> {
     // Process again now that all other files are present
     await processFile(manifest.filePath, outDir, rootDir);
   }
+}
+
+export async function buildZip(): Promise<void> {
+  await fsPromises.mkdir(path.join('package', 'content'), {recursive: true});
+  
+  // TODO build should directly write to the zip
+  await build(path.join('package', 'content'));
+  
+  const archive = archiver('zip');
+  archive.pipe(fs.createWriteStream(path.join('package', 'module.zip')));
+  archive.directory(path.join('package', 'content'), false);
+  await archive.finalize();
+  await fsPromises.rm(path.join('package', 'content'), {recursive: true});
 }
 
 export async function watch(outDir?: string): Promise<{stop: () => void}> {
