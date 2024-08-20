@@ -13,7 +13,7 @@
     "minor": "node --loader ts-node/esm ./src/default-builder.ts publish -u minor",
     "major": "node --loader ts-node/esm ./src/default-builder.ts publish -u major",
     "http": "http-server test-dist",
-    "prepack": "npm run build"
+    "prepare": "npm run build"
   },
   "author": "",
   "license": "MIT",
