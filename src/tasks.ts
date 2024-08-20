@@ -208,6 +208,9 @@ export async function build(outDir?: string): Promise<void> {
 }
 
 export async function buildZip(): Promise<void> {
+  const {rootDir} = preBuildValidation();
+  const manifest = FoundryVTT.readManifest(rootDir, {nullable: true});
+
   await fsPromises.mkdir(path.join('package', 'content'), {recursive: true});
   
   // TODO build should directly write to the zip
@@ -215,7 +218,7 @@ export async function buildZip(): Promise<void> {
   
   const archive = archiver('zip');
   archive.pipe(fs.createWriteStream(path.join('package', 'module.zip')));
-  archive.directory(path.join('package', 'content'), false);
+  archive.directory(path.join('package', 'content'), manifest == null ? false : manifest.manifest.id);
   await archive.finalize();
   await fsPromises.rm(path.join('package', 'content'), {recursive: true});
 }
