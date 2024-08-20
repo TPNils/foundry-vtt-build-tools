@@ -85,7 +85,7 @@ async function processFile(inputPath: string, outDir: string, rootDir: string): 
     case 'module.json':
     case 'system.json': {
       const manifest = FoundryVTT.readManifest(inputPath);
-      FoundryVTT.writeManifest({...manifest, filePath: outputPath}, manifestWriteOptions);
+      await FoundryVTT.writeManifest({...manifest, filePath: outputPath}, manifestWriteOptions);
       return;
     }
   }
