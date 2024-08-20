@@ -45,11 +45,14 @@ export class Args {
         targetVersion = {
           ...currentVersion,
           major: currentVersion.major+1,
+          minor: 0,
+          patch: 0,
         }
       } else if (version.toLowerCase() === 'minor') {
         targetVersion = {
           ...currentVersion,
           minor: currentVersion.minor+1,
+          patch: 0,
         }
       } else if (version.toLowerCase() === 'patch') {
         targetVersion = {
