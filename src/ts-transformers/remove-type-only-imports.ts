@@ -17,7 +17,7 @@ export const removeTypeOnlyImportsTransformer = createFullTraverseTransformer(({
   const nonTypeElements: ts.ImportSpecifier[] = [];
   for (const namedImport of node.importClause.namedBindings.elements) {
     const namedImportSymbol = typeChecker.getAliasedSymbol(typeChecker.getSymbolAtLocation(namedImport.name));
-    if (!(namedImportSymbol.flags & virtualSymbolFlags)) {
+    if (!(namedImportSymbol.flags & virtualSymbolFlags) || namedImportSymbol.flags & ts.SymbolFlags.Namespace) {
       nonTypeElements.push(namedImport);
     }
   }
