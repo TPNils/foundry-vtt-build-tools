@@ -27603,7 +27603,6 @@ namespace Package {
 export class Npm {
   static async getBundledDependencyLocations(): Promise<Npm.PackageQuery[]> {
     const out = await Cli.execPromise(`npm`, [`query`, `--json`, `":root > .bundled, .bundled .prod:not(.bundled)"`]);
-    console.log('npm out', out)
     Cli.throwIfError(out, {ignoreOut: true});
     
     try {
