@@ -8,6 +8,9 @@ export const removeTypeOnlyImportsTransformer = createFullTraverseTransformer(({
   if (!ts.isImportDeclaration(node)) {
     return next();
   }
+  if (node.importClause.isTypeOnly) {
+    return undefined;
+  }
   
   if (!node.importClause?.namedBindings || !ts.isNamedImports(node.importClause.namedBindings)) {
     return next();
