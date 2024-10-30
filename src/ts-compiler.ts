@@ -110,7 +110,7 @@ export class TsCompiler {
       const fullText = d.file.getFullText();
       const lineNr = fullText.substring(0, d.start).split(/\r\n|\r|\n/).length;
       const lines = fullText.split(/\r\n|\r|\n/);
-      let charactersBeforeLine = fullText.substring(0, d.start).match(/\r\n|\r|\n/g).map(m => m.length).reduce((prev, curr) => prev + curr, 0);
+      let charactersBeforeLine = fullText.substring(0, d.start).match(/\r\n|\r|\n/g)?.map(m => m.length)?.reduce((prev, curr) => prev + curr, 0) ?? 0;
       for (let i = 0; i < lineNr-1; i++) {
         charactersBeforeLine += lines[i].length;
       }
