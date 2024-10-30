@@ -2,6 +2,7 @@
 import path from 'path';
 import ts from 'typescript';
 import { MinifyOptions, minify } from 'uglify-js';
+import { Cli } from './cli.js';
 import { Npm } from './npm.js';
 import { appendJsExtensionTransformer } from './ts-transformers/append-js-extension-transformer.js';
 import { foundryVttModuleImportTransformer } from './ts-transformers/foundry-vtt-module-import-reference.js';
@@ -100,7 +101,32 @@ export class TsCompiler {
   }
 
   static #reportDiagnostic(diagnostic: ts.Diagnostic) {
-    console.error('Error', diagnostic.code, ':', ts.flattenDiagnosticMessageText(diagnostic.messageText, TsCompiler.#formatHost.getNewLine()));
+    console.error(TsCompiler.#diagnosticToString(diagnostic));
+  }
+
+  static #diagnosticToString(d: ts.Diagnostic) {
+    const details = [];
+    if (d.file) {
+      const fullText = d.file.getFullText();
+      const lineNr = fullText.substring(0, d.start).split(/\r\n|\r|\n/).length;
+      const lines = fullText.split(/\r\n|\r|\n/);
+      let charactersBeforeLine = fullText.substring(0, d.start).match(/\r\n|\r|\n/g).map(m => m.length).reduce((prev, curr) => prev + curr, 0);
+      for (let i = 0; i < lineNr-1; i++) {
+        charactersBeforeLine += lines[i].length;
+      }
+      const line = lines[lineNr-1];
+      details.push(`${Cli.colors.FgGray}filename: ${Cli.colors.FgGreen}${JSON.stringify(path.relative(process.cwd(), d.file.fileName))}`);
+      details.push(`${Cli.colors.FgGray}line nr: ${Cli.colors.FgYellow}${lineNr}`);
+      details.push(`${Cli.colors.FgGray}line: ` + [
+        Cli.colors.Reset, line.substring(0, d.start - charactersBeforeLine).trimStart(),
+        Cli.colors.FgRed, Cli.colors.Underscore, line.substring(d.start - charactersBeforeLine, (d.start - charactersBeforeLine) + d.length),
+        Cli.colors.Reset, line.substring((d.start - charactersBeforeLine) + d.length).trimEnd(),
+      ].join(''));
+    }
+    details.push(`${Cli.colors.FgGray}message: ${Cli.colors.Reset}${d.messageText}`);
+    return `${d.category === 0 ? 'Warning' : d.category === 1 ? 'Error' : d.category === 2 ? 'Suggestion' : 'Message'} ${Cli.colors.FgYellow}${d.code}\n${details.join('\n')
+      .replace(/^\s*/mg, '  ')}`
+      .replace(/$/gm, Cli.colors.Reset);
   }
 
   static #throwDiagnostic(diagnostic?: ts.Diagnostic | ts.Diagnostic[]) {
@@ -114,7 +140,7 @@ export class TsCompiler {
       return;
     }
 
-    throw new Error(diagnostic.map(d => `Error ${d.code}: ${ts.flattenDiagnosticMessageText(d.messageText, TsCompiler.#formatHost.getNewLine())}`).join('\n'))
+    throw new Error(diagnostic.map(d => TsCompiler.#diagnosticToString(d)).join('\n'))
   }
 
   static #tsWriteFile(compilerOptions: ts.CompilerOptions, original: ts.WriteFileCallback = ts.sys.writeFile): ts.WriteFileCallback {
