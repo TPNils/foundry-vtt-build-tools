@@ -1,4 +1,8 @@
 
+import fs from 'fs';
+import fsPromises from 'fs/promises';
+import { Glob } from 'glob';
+import GlobWatcher from 'glob-watcher';
 import path from 'path';
 import ts from 'typescript';
 import { MinifyOptions, minify } from 'uglify-js';
@@ -9,11 +13,24 @@ import { foundryVttModuleImportTransformer } from './ts-transformers/foundry-vtt
 import { removeTypeOnlyExportTransformer } from './ts-transformers/remove-type-only-exports.js';
 import { removeTypeOnlyImportsTransformer } from './ts-transformers/remove-type-only-imports.js';
 
-const jsMapSymbol = Symbol('jsMap');
+type PickRequired<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
 
+async function copyFileCb(inputPath: string, compilerOptions: PickRequired<ts.CompilerOptions, 'outDir' | 'rootDir'>): Promise<void> {
+  let outputPath = path.join(compilerOptions.outDir, inputPath);
+  await fsPromises.mkdir(path.dirname(outputPath), {recursive: true});
+  const inputStream = fs.createReadStream(path.join(compilerOptions.rootDir, inputPath));
+  const outputStream = fs.createWriteStream(outputPath);
+  inputStream.pipe(outputStream, {end: true});
+  await new Promise<void>((resolve, reject) => {
+    outputStream.on('finish', resolve);
+    outputStream.on('error', reject);
+  });
+}
+
+const jsMapSymbol = Symbol('jsMap');
 export class TsCompiler {
 
-  public static async createTsWatch(optionsToExtend: ts.CompilerOptions = {}): Promise<ts.WatchOfConfigFile<any>> {
+  public static async createTsWatch(optionsToExtend: PickRequired<ts.CompilerOptions, 'outDir' | 'rootDir'>): Promise<ts.WatchOfConfigFile<any>> {
     const configPath = ts.findConfigFile('./', ts.sys.fileExists, 'tsconfig.json');
     if (!configPath) {
       throw new Error("Could not find a valid 'tsconfig.json'.");
@@ -34,6 +51,7 @@ export class TsCompiler {
     // For pure type-checking scenarios, or when another tool/process handles emit,
     // using `createSemanticDiagnosticsBuilderProgram` may be more desirable.
     const bundles = await Npm.getBundledDependencyLocations();
+    let dtsWatchers: fs.FSWatcher[] = [];
     const createProgram: ts.CreateProgram<ts.EmitAndSemanticDiagnosticsBuilderProgram> = (...args) => {
       const host = args?.[2];
       if (host) {
@@ -41,6 +59,20 @@ export class TsCompiler {
       }
       const builder = ts.createEmitAndSemanticDiagnosticsBuilderProgram(...args);
       TsCompiler.#overrideEmit(builder, () => builder.getProgram(), bundles);
+      
+      if (builder.getCompilerOptions().declaration) {
+        const watcher = GlobWatcher([`**/*.d.ts`], {
+          cwd: optionsToExtend.rootDir,
+          ignoreInitial: false,
+        });
+
+        const fileCb = (inputPath: string) => copyFileCb(inputPath, optionsToExtend);
+        watcher.addListener('add', fileCb);
+        watcher.addListener('change', fileCb);
+        watcher.addListener('unlink', fileCb);
+        dtsWatchers.push(watcher);
+      }
+
       return builder;
     }
 
@@ -57,10 +89,20 @@ export class TsCompiler {
       },
     );
 
-    return ts.createWatchProgram(host);
+    const watch = ts.createWatchProgram(host);
+    const originalClose = watch.close;
+    watch.close = function(...args: any[]) {
+      for (const dtsWatcher of dtsWatchers) {
+        dtsWatcher.close();
+      }
+      dtsWatchers = [];
+      originalClose.apply(this, args);
+    }
+
+    return watch;
   }
 
-  public static async createTsProgram(optionsToExtend: ts.CompilerOptions = {}): Promise<ts.Program> {
+  public static async createTsProgram(optionsToExtend: PickRequired<ts.CompilerOptions, 'outDir' | 'rootDir'>): Promise<ts.Program> {
     const configPath = ts.findConfigFile('./', ts.sys.fileExists, 'tsconfig.json');
     if (!configPath) {
       throw new Error("Could not find a valid 'tsconfig.json'.");
@@ -73,6 +115,21 @@ export class TsCompiler {
     host.writeFile = TsCompiler.#tsWriteFile(commandLine.options, ts.sys.writeFile);
     const program = ts.createProgram(commandLine.fileNames, commandLine.options, host);
     TsCompiler.#overrideEmit(program, () => program, await Npm.getBundledDependencyLocations());
+
+    const originalEmit = program.emit;
+
+    program.emit = function(...args) {
+      const glob = new Glob([`**/*.d.ts`], {
+        cwd: optionsToExtend.rootDir,
+        nodir: true,
+      });
+
+      for (const file of glob.iterateSync()) {
+        copyFileCb(file, optionsToExtend);
+      }
+
+      return originalEmit.apply(this, args);
+    }
 
     return program;
   }
