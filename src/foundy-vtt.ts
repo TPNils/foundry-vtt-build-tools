@@ -529,6 +529,14 @@ export namespace FoundryVTT {
       /** Whether this package uses the protected content access system. */
       protected?: boolean;
     }
+
+    export interface PackFolderV10 {
+      name: string;
+      sorting: 'a' |'m';
+      color: string;
+      packs: string[]; // names mentioned in packs
+      folders: PackFolderV10[];
+    }
     
     export interface V10 extends Omit<V8, 'name' | 'minimumCoreVersion' | 'compatibleCoreVersion' | 'dependencies' | 'system' | 'packs'> {
       /** The machine-readable unique package id, should be lower-case with no spaces or special characters */
@@ -552,6 +560,8 @@ export namespace FoundryVTT {
         private?: boolean;
         flags?: FoundryFlags;
       }>;
+      /** Max depth of 4 */
+      packFolders?: PackFolderV10[];
       relationships: {
         /** Systems that this Package supports, all of them optional */
         systems?: Array<Relationship<'system'>>;
