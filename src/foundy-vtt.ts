@@ -5,6 +5,9 @@ import open from 'open';
 import { Git } from './git.js';
 import showdown from 'showdown';
 import { ChildProcess, spawn } from 'child_process';
+import { Npm } from './npm.js';
+
+const moduleFileNames = ['module.json', 'system.json'] as const;
 
 export class FoundryVTT {
 
@@ -76,18 +79,20 @@ export class FoundryVTT {
   public static readManifest(fileOrDirPath: string, options: {nullable: true}): FoundryVTT.Manifest | null
   public static readManifest(fileOrDirPath: string, {nullable=false} = {}): FoundryVTT.Manifest | null {
     if (fs.statSync(fileOrDirPath).isDirectory()) {
-      const module = path.join(fileOrDirPath, 'module.json');
-      const system = path.join(fileOrDirPath, 'system.json');
-      if (fs.existsSync(module) && fs.statSync(module).isFile()) {
-        fileOrDirPath = module;
-      } else if (fs.existsSync(system) && fs.statSync(system).isFile()) {
-        fileOrDirPath = system;
-      } else {
-        if (nullable) {
-          return null;
+      for (const fileName of moduleFileNames) {
+        const p = path.join(fileOrDirPath, fileName);
+        if (fs.existsSync(p) && fs.statSync(p).isFile()) {
+          fileOrDirPath = p;
+          break;
         }
-        throw new Error(`Could not find a module.json or system.json in path ${fileOrDirPath}`)
       }
+    }
+
+    if (!fileOrDirPath) {
+      if (nullable) {
+        return null;
+      }
+      throw new Error(`Could not find a ${moduleFileNames.join(' or ')} in path ${fileOrDirPath}`)
     }
 
     try {
