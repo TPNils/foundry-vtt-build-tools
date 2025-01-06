@@ -5,11 +5,11 @@ const virtualSymbolFlags = ts.SymbolFlags.Interface |  ts.SymbolFlags.Signature 
   ts.SymbolFlags.TypeAlias | ts.SymbolFlags.TypeLiteral | ts.SymbolFlags.TypeParameter;
 
 export const removeTypeOnlyImportsTransformer = createFullTraverseTransformer(({program, node, next}) => {
-  if (!ts.isImportDeclaration(node)) {
+  // import './file.js'; has no importClause
+  if (!ts.isImportDeclaration(node) || node.importClause == null) {
     return next();
   }
-  // import './file.js'; has no importClause
-  if (node.importClause == null || node.importClause?.isTypeOnly) {
+  if (node.importClause?.isTypeOnly) {
     return undefined;
   }
   
