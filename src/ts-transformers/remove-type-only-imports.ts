@@ -8,7 +8,8 @@ export const removeTypeOnlyImportsTransformer = createFullTraverseTransformer(({
   if (!ts.isImportDeclaration(node)) {
     return next();
   }
-  if (node.importClause.isTypeOnly) {
+  // import './file.js'; has no importClause
+  if (node.importClause == null || node.importClause?.isTypeOnly) {
     return undefined;
   }
   
