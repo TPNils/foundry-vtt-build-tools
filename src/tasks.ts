@@ -406,3 +406,78 @@ export async function publishFoundryVtt(releaseToken: string, version?: Version)
   const manifest = await Git.getFileAtCommit(versionTag.hash, path.relative(process.cwd(), manifestAbsolutePath).split(path.sep).join('/'))
   await FoundryVTT.publishVersion(FoundryVTT.parseManifest(manifest), releaseToken)
 }
+
+export async function printMarkdownBadges(): Promise<void> {
+  const githubRepo = await Git.getGithubRepoName();
+  if (!githubRepo) {
+    console.warn('No github repository found')
+    return;
+  }
+  
+  const srcPath = preBuildValidation().rootDir;
+  const manifest = FoundryVTT.readManifest(srcPath);
+  const firstSystemId = manifest.manifest.relationships?.systems?.[0]?.id
+  const style = 'flat';
+  
+
+  function url(base: string, params: Record<string, string | number | boolean> = {}): string {
+    const url = new URL(base);
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, String(value));
+    }
+    return url.toString();
+  }
+
+  const lines: Array<{name: string; url: string; href?: string;}> = [];
+  lines.push({
+    name: 'Foundry version',
+    href: `https://foundryvtt.com/`,
+    url: url(`https://img.shields.io/endpoint`, {url: url(`https://foundryshields.com/version`, {
+      url: `https://github.com/${githubRepo}/releases/download/latest/module.json`,
+      style: style,
+    })})
+  });
+
+  lines.push({
+    name: 'System version',
+    href: firstSystemId ? `https://foundryvtt.com/packages/${firstSystemId}` : null,
+    url: url(`https://img.shields.io/endpoint`, {url: url(`https://foundryshields.com/system`, {
+      url: `https://github.com/${githubRepo}/releases/download/latest/module.json`,
+      style: style,
+      nameType: `short`,
+      showVersion: 1,
+    })})
+  });
+
+  lines.push({
+    name: 'GitHub package.json version',
+    href: `https://github.com/${githubRepo}/releases/tag/latest`,
+    url: url(`https://img.shields.io/github/package-json/v/${githubRepo}`, {
+      style: style,
+      label: `latest version`
+    })
+  });
+
+  lines.push({
+    name: 'GitHub issues',
+    href: `https://github.com/${githubRepo}/issues`,
+    url: url(`https://img.shields.io/github/issues/${githubRepo}`, {
+      style: style,
+    }),
+  });
+
+  lines.push({
+    name: 'GitHub license',
+    url: url(`https://img.shields.io/github/license/${githubRepo}`, {
+      style: style,
+    })
+  });
+
+  for (const line of lines) {
+    let str = `![${line.name}](${line.url})`;
+    if (line.href) {
+      str = `[${str}](${line.href})`;
+    }
+    console.log(str);
+  }
+}

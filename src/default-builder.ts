@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import path from "path";
-import { build, buildZip, compileReadme, preBuildValidation, watch, publishGit, rePublish, manifestForGithubCurrentVersion, manifestForGithubLatestVersion, publishFoundryVtt } from './tasks.js';
+import { build, buildZip, compileReadme, preBuildValidation, watch, publishGit, rePublish, manifestForGithubCurrentVersion, manifestForGithubLatestVersion, publishFoundryVtt, printMarkdownBadges } from './tasks.js';
 import { Args } from './args.js';
 import { FoundryVTT } from './foundy-vtt.js';
 import { Git } from './git.js';
@@ -51,6 +51,10 @@ async function start() {
         process.exit(1);
       }
       publishFoundryVtt(foundryReleaseToken, Args.getVersion());
+      break;
+    }
+    case 'badges': {
+      await printMarkdownBadges();
       break;
     }
     case 'reupload': {
