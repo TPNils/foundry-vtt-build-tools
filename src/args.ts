@@ -1,6 +1,10 @@
 import { Version } from './version.js';
 import chalk from 'chalk';
 
+function toShortArg(arg: string): string {
+  return arg.replace(/(?:^|-)([^\-])([^\-]*)/g, `$1`).toLowerCase();
+}
+
 export class Args {
 
   static #getArg(short: string, long: string, type: 'boolean'): boolean
@@ -68,11 +72,33 @@ export class Args {
     return targetVersion;
   }
   
-  public static getFoundryInstanceName(): string | undefined {
-    return Args.#getArg('fi', 'foundryinstance');
+  public static readonly foundryReleaseTokenArgLong = 'foundry-release-token';
+  public static readonly foundryReleaseTokenArgShort = toShortArg(Args.foundryReleaseTokenArgLong);
+  public static getFoundryReleaseToken(): string | undefined {
+    return Args.#getArg(Args.foundryReleaseTokenArgShort, Args.foundryReleaseTokenArgLong);
   }
   
+  public static readonly versionArgLong = 'version';
+  public static readonly versionArgShort = toShortArg(Args.versionArgLong);
+  public static getVersion(): Version | undefined {
+    const version = Args.#getArg(Args.versionArgShort, Args.versionArgLong);
+    if (Version.isVersionString(version)) {
+      return Version.parse(version);
+    }
+    if (version) {
+      throw new Error(`Invalid version (${version}) for -${Args.versionArgShort}/--${Args.versionArgLong}. Expected format: v1.0.0 or 1.0.0 or 1.0 or 1`);
+    }
+  }
+  
+  public static readonly foundryInstanceNameArgLong = 'foundry-instance';
+  public static readonly foundryInstanceNameArgShort = toShortArg(Args.foundryInstanceNameArgLong);
+  public static getFoundryInstanceName(): string | undefined {
+    return Args.#getArg(Args.foundryInstanceNameArgShort, Args.foundryInstanceNameArgLong);
+  }
+  
+  public static readonly useAllFoundryInstancesArgLong = 'all-foundry-instances';
+  public static readonly useAllFoundryInstancesArgShort = toShortArg(Args.useAllFoundryInstancesArgLong);
   public static getUseAllFoundryInstances(): boolean {
-    return Args.#getArg('afi', 'allfoundryinstances', 'boolean');
+    return Args.#getArg(Args.useAllFoundryInstancesArgLong, Args.useAllFoundryInstancesArgShort, 'boolean');
   }
 }

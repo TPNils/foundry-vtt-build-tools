@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import path from "path";
-import { build, buildZip, compileReadme, preBuildValidation, watch, publish, rePublish, manifestForGithubCurrentVersion, manifestForGithubLatestVersion } from './tasks.js';
+import { build, buildZip, compileReadme, preBuildValidation, watch, publishGit, rePublish, manifestForGithubCurrentVersion, manifestForGithubLatestVersion, publishFoundryVtt } from './tasks.js';
 import { Args } from './args.js';
 import { FoundryVTT } from './foundy-vtt.js';
 import { Git } from './git.js';
@@ -41,7 +41,16 @@ async function start() {
       break;
     }
     case 'publish': {
-      publish(Args.getNextVersion(await Git.getLatestVersionTag()));
+      publishGit(Args.getNextVersion(await Git.getLatestVersionTag()));
+      break;
+    }
+    case 'publishFoundryVtt': {
+      const foundryReleaseToken = Args.getFoundryReleaseToken();
+      if (!foundryReleaseToken) {
+        console.error(`Missing argument "--${Args.foundryReleaseTokenArgLong}"`);
+        process.exit(1);
+      }
+      publishFoundryVtt(foundryReleaseToken, Args.getVersion());
       break;
     }
     case 'reupload': {

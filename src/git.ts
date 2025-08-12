@@ -109,21 +109,32 @@ export class Git {
     Cli.throwIfError(await Cli.execPromise(`git`, [`push`, `origin`, versionStr]), {ignoreOut: true});
   }
 
+  public static async getFileAtCommit(commitHash: string, filePath: string): Promise<string> {
+    const file = await Cli.execPromise(`git`, [`--no-pager`, `show`, `${commitHash}:${filePath}`]);
+    Cli.throwIfError(file);
+    return file.stdout;
+  }
+
   public static async getLatestVersionTag(): Promise<Version> {
-    const tagHash = await Cli.execPromise('git show-ref --tags');
-    const rgx = /refs\/tags\/(.*)/g;
-    let match: RegExpExecArray | null;
-    const versions: Version[] = [];
-    while (match = rgx.exec(tagHash.stdout ?? '')) {
-      try {
-        versions.push(Version.parse(match[1]));
-      } catch {/*ignore*/}
-    }
+    const versions = await Git.getAllVersionTags();
     if (!versions.length) {
       return {major: 0, minor: 0, patch: 0};
     }
-    versions.sort(Version.sort);
-    return versions[versions.length - 1];
+    return versions[versions.length - 1].version;
+  }
+
+  /** Return all tagged versions, sorted from earliest version to latest based on the version number */
+  public static async getAllVersionTags(): Promise<Array<{hash: string; version: Version}>> {
+    const tagHash = await Cli.execPromise('git show-ref --tags');
+    const rgx = /([0-9a-fA-F]+) refs\/tags\/(.*)/g;
+    let match: RegExpExecArray | null;
+    const response: Array<{hash: string; version: Version}> = [];
+    while (match = rgx.exec(tagHash.stdout ?? '')) {
+      try {
+        response.push({hash: match[1], version: Version.parse(match[2])});
+      } catch {/*ignore*/}
+    }
+    return response.sort((a, b) => Version.sort(a.version, b.version));
   }
 
   public static async push(): Promise<void> {

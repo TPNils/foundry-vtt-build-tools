@@ -362,7 +362,7 @@ export async function rePublish(): Promise<void> {
   await Git.tagCurrentVersion(currentVersion);
 }
 
-export async function publish(newVersion: Version): Promise<void> {
+export async function publishGit(newVersion: Version): Promise<void> {
   const gitVersion = await Git.getLatestVersionTag();
   const versions = [newVersion, await Git.getLatestVersionTag()].sort(Version.sort);
   if (versions[1] !== newVersion) {
@@ -387,4 +387,22 @@ export async function publish(newVersion: Version): Promise<void> {
   // If for some reason the tag already exists
   await Git.deleteVersionTag(newVersion);
   await Git.tagCurrentVersion(newVersion);
+}
+
+export async function publishFoundryVtt(releaseToken: string, version?: Version): Promise<void> {
+  const allVersions = await Git.getAllVersionTags();
+  if (version == null && allVersions.length > 0) {
+    version = allVersions[allVersions.length-1].version;
+  }
+  if (version == null) {
+    throw new Error(`Repository does not have any version tags`)
+  }
+  const versionTag = allVersions.find(v => Version.toString(v.version) === Version.toString(version));
+  if (versionTag == null) {
+    throw new Error(`No tag found for version ${Version.toString(version)}`)
+  }
+  const srcPath = preBuildValidation().rootDir;
+  const manifestAbsolutePath = FoundryVTT.readManifest(srcPath).filePath;
+  const manifest = await Git.getFileAtCommit(versionTag.hash, path.relative(process.cwd(), manifestAbsolutePath).split(path.sep).join('/'))
+  await FoundryVTT.publishVersion(FoundryVTT.parseManifest(manifest), releaseToken)
 }

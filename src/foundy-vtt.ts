@@ -5,7 +5,6 @@ import open from 'open';
 import { Git } from './git.js';
 import showdown from 'showdown';
 import { ChildProcess, spawn } from 'child_process';
-import { Npm } from './npm.js';
 
 const moduleFileNames = ['module.json', 'system.json'] as const;
 
@@ -96,12 +95,12 @@ export class FoundryVTT {
     }
 
     try {
-      const data = JSON.parse(fs.readFileSync(fileOrDirPath, 'utf8'));
+      const data = FoundryVTT.parseManifest(fs.readFileSync(fileOrDirPath, 'utf8'));
 
       return {
         type: fileOrDirPath.endsWith('system.json') ? 'system' : 'module',
         filePath: fileOrDirPath,
-        manifest: FoundryVTT.#toLatestVersion(data),
+        manifest: data,
       };
     } catch (e) {
       if (!nullable) {
@@ -110,6 +109,10 @@ export class FoundryVTT {
     }
     
     return null;
+  }
+
+  public static parseManifest(manifestContent: string): FoundryVTT.Manifest.LatestVersion {
+    return FoundryVTT.#toLatestVersion(JSON.parse(manifestContent));
   }
 
   public static async serializeManifest(manifest: FoundryVTT.Manifest, options: FoundryVTT.Manifest.WriteOptions = {}): Promise<string> {
@@ -147,6 +150,28 @@ export class FoundryVTT {
       simplifiedAutoLink: true,
     });
     return converter.makeHtml(markdown);
+  }
+
+  public static async publishVersion(manifest: FoundryVTT.Manifest.LatestVersion, releaseToken: string): Promise<void> {
+    const response = await fetch(`https://foundryvtt.com/_api/packages/release_version/`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': releaseToken,
+      },
+      method: "POST",
+      body: JSON.stringify({
+        id: manifest.id,
+        release: {
+          version: manifest.version.replace(/^v/i, ''),
+          manifest: manifest.manifest,
+          // TODO generate notes: 'https://github.com/example/example-module/releases/tag/release-1.0.0',
+          compatibility: manifest.compatibility,
+        }
+      })
+    });
+    if (response.status >= 400) {
+      throw new Error(`Error when creating a new release. Response: ${JSON.stringify(await response.json(), null, 2)}`)
+    }
   }
 
   public static startServer(runInstanceKey: string): ChildProcess {
