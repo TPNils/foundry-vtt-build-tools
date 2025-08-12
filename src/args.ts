@@ -13,13 +13,13 @@ export class Args {
       if (arg === short || arg === long) {
         return type === 'boolean' ? true : process.argv[i+1]
       } else if (arg.startsWith(short + '=')) {
-        const value = arg.substring(short.length);
+        const value = arg.substring(short.length+1);
         if (type === 'boolean') {
           return Boolean(value);
         }
         return value;
       } else if (arg.startsWith(long + '=')) {
-        const value = arg.substring(long.length);
+        const value = arg.substring(long.length+1);
         if (type === 'boolean') {
           return Boolean(value);
         }
