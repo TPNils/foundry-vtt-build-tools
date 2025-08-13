@@ -345,14 +345,14 @@ export async function compileReadme(): Promise<void> {
 export async function manifestForGithubCurrentVersion(): Promise<void> {
   const srcPath = preBuildValidation().rootDir;
   const manifest = FoundryVTT.readManifest(srcPath);
-  await Git.setGithubLinks(manifest.manifest, false);
+  await Git.setGithubLinks(manifest.manifest);
   await FoundryVTT.writeManifest(manifest, manifestWriteOptions);
 }
 
 export async function manifestForGithubLatestVersion(): Promise<void> {
   const srcPath = preBuildValidation().rootDir;
   const manifest = FoundryVTT.readManifest(srcPath);
-  await Git.setGithubLinks(manifest.manifest, true);
+  await Git.setGithubLinks(manifest.manifest);
   await FoundryVTT.writeManifest(manifest, manifestWriteOptions);
 }
 
@@ -374,7 +374,7 @@ export async function publishGit(newVersion: Version): Promise<void> {
   const manifest = FoundryVTT.readManifest(srcPath, {nullable: true});
   if (manifest) {
     manifest.manifest.version = Version.toString(newVersion);
-    await Git.setGithubLinks(manifest.manifest, false);
+    await Git.setGithubLinks(manifest.manifest);
     await FoundryVTT.writeManifest(manifest, manifestWriteOptions);
   }
 

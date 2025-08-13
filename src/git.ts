@@ -6,7 +6,7 @@ import { FoundryVTT } from './foundy-vtt.js';
 
 export class Git {
 
-  public static async setGithubLinks(manifest: FoundryVTT.Manifest.LatestVersion, isLatest: boolean): Promise<void> {
+  public static async setGithubLinks(manifest: FoundryVTT.Manifest.LatestVersion): Promise<void> {
     const githubRepository = await Git.getGithubRepoName();
     if (githubRepository == null) {
       throw new Error(chalk.red(`Git no github repository found.`));
@@ -14,16 +14,7 @@ export class Git {
     const versionString = Version.toString(Version.parse(manifest.version))
 
     manifest.url = `https://github.com/${githubRepository}`;
-    // When foundry checks if there is an update, it will fetch the manifest present in the zip, for us it points to the latest one.
-    // The external one should point to itself so you can download a specific version
-    // The zipped one should point to the latest manifest so when the "check for update" is executed it will fetch the latest
-    if (isLatest) {
-      // The manifest which is within the module zip
-      manifest.manifest = `https://github.com/${githubRepository}/releases/download/latest/module.json`;
-    } else {
-      // Seperate file uploaded for github
-      manifest.manifest = `https://github.com/${githubRepository}/releases/download/${versionString}/module.json`;
-    }
+    manifest.manifest = `https://github.com/${githubRepository}/releases/download/latest/module.json`;
     manifest.download = `https://github.com/${githubRepository}/releases/download/${versionString}/module.zip`;
   }
 
